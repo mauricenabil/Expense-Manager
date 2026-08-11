@@ -1,0 +1,67 @@
+name: Build Windows Desktop App
+
+# يعمل تلقائياً عند كل Push على main، أو يدوياً من تبويب Actions في GitHub
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# مهم جداً: بدون هذا الجزء، GITHUB_TOKEN التلقائي يكون "قراءة فقط" افتراضياً
+# (هذا الإعداد الافتراضي لأي مستودع جديد منذ فبراير 2023)، فيفشل إنشاء أي
+# Release بخطأ "Resource not accessible by integration". هذا السطر يمنح
+# هذا الـ workflow تحديداً صلاحية الكتابة على محتوى المستودع (بما فيها Releases)
+# دون الحاجة لتغيير إعدادات المستودع العامة يدوياً من GitHub.
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    # سيرفر ويندوز حقيقي مجاني من GitHub — هنا فقط يمكن بناء Setup.exe الحقيقي
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # lts/* بدل رقم ثابت: يجلب دائماً أحدث إصدار LTS متاح وقت التشغيل تلقائياً،
+          # فلا نحتاج لتحديث هذا الرقم يدوياً كل ما يصدر إصدار LTS جديد (كان مثبّتاً
+          # سابقاً على 20 تحديداً، وهو ما سبب تحذير عدم التوافق مع الإصدارات الأحدث)
+          node-version: "lts/*"
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      # tauri-action يقوم بكل شيء: npm run build + cargo build + إنشاء NSIS Setup.exe
+      # ثم ينشر النتائج تلقائياً كـ "Release" في تبويب Releases بالمستودع
+      - name: Build Tauri App and create GitHub Release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: app-v__VERSION__
+          releaseName: "Expense Manager v__VERSION__"
+          releaseBody: "Automated build. Download ExpenseManager-Setup.exe below and run it to install."
+          releaseDraft: false
+          prerelease: false
+
+      - name: Prepare Portable.exe (renamed raw executable, no installation needed)
+        shell: pwsh
+        run: |
+          Copy-Item "src-tauri/target/release/expense-manager.exe" "src-tauri/target/release/ExpenseManager-Portable.exe"
+
+      # نسخة إضافية: رفع الملفات أيضاً في تبويب Actions (في حالة عدم رغبتك باستخدام Releases)
+      - name: Upload build artifacts (alternative download location)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ExpenseManager-Windows-Build
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/ExpenseManager-Portable.exe
+          retention-days: 30
