@@ -1,0 +1,62 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B1628"/>
+      <stop offset="100%" stop-color="#17345F"/>
+    </linearGradient>
+    <linearGradient id="bar1Grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4A8FE0"/>
+      <stop offset="100%" stop-color="#236EC8"/>
+    </linearGradient>
+    <linearGradient id="bar2Grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#6AB4FF"/>
+      <stop offset="100%" stop-color="#3A8FF8"/>
+    </linearGradient>
+    <linearGradient id="bar3Grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#8AD2FF"/>
+      <stop offset="100%" stop-color="#64BCFF"/>
+    </linearGradient>
+    <radialGradient id="shineGrad" cx="25%" cy="25%" r="50%">
+      <stop offset="0%" stop-color="white" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="white" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="dotGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#64BCFF" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#64BCFF" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="roundedClip">
+      <rect width="512" height="512" rx="115" ry="115"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="115" ry="115" fill="url(#bgGrad)"/>
+
+  <!-- Subtle top-left shine -->
+  <rect width="512" height="512" rx="115" ry="115" fill="url(#shineGrad)"/>
+
+  <!-- Bar 1 — left, shortest -->
+  <rect x="95"  y="302" width="110" height="175" rx="24" fill="url(#bar1Grad)" opacity="0.92"/>
+
+  <!-- Bar 2 — middle, medium -->
+  <rect x="201" y="212" width="110" height="265" rx="24" fill="url(#bar2Grad)"/>
+
+  <!-- Bar 3 — right, tallest -->
+  <rect x="307" y="122" width="110" height="355" rx="24" fill="url(#bar3Grad)"/>
+
+  <!-- Trend line connecting bar tops -->
+  <polyline
+    points="150,302  256,212  362,122"
+    stroke="#82C8FF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"
+    fill="none" opacity="0.35"/>
+
+  <!-- Glow behind dot -->
+  <circle cx="362" cy="97" r="36" fill="url(#dotGlow)"/>
+
+  <!-- White dot above tallest bar -->
+  <circle cx="362" cy="97" r="16" fill="white" opacity="0.88"/>
+
+  <!-- Inner highlight on background edge (subtle) -->
+  <rect width="512" height="512" rx="115" ry="115"
+    fill="none" stroke="white" stroke-width="2" stroke-opacity="0.08"/>
+</svg>

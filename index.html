@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Expense Manager</title>
+    <script>
+      // يقرأ الثيم المحفوظ ويطبّقه فوراً بشكل متزامن (قبل أي CSS أو React) لمنع أي وميض
+      // أبيض بين الفتح والظهور الفعلي — يطابق ألوان --bg الحقيقية في theme.css لكل وضع.
+      (function () {
+        var theme = localStorage.getItem("expense-manager-theme");
+        if (theme !== "light" && theme !== "dark") theme = "dark";
+        document.documentElement.setAttribute("data-theme", theme);
+        document.documentElement.style.backgroundColor = theme === "dark" ? "#0F1B2D" : "#F4F6FA";
+      })();
+    </script>
+    <style>
+      /* نفس لون الخلفية الافتراضي مباشرة على body قبل تحميل أي stylesheet */
+      html, body { margin: 0; background-color: inherit; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

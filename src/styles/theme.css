@@ -1,0 +1,232 @@
+/* ===================================================================
+   Theme System — CSS Variables
+   التبديل بين الوضعين يتم عبر إضافة attribute data-theme على <html>
+   =================================================================== */
+
+:root[data-theme="dark"] {
+  --bg: #0F1B2D;
+  --surface: #1B2A41;
+  --surface-hover: #233553;
+  --border: #2A3B57;
+  --text: #E6EDF5;
+  --text-muted: #8AA0BD;
+  --accent: #4DA3FF;
+  --accent-soft: rgba(77, 163, 255, 0.15);
+  --success: #4ADE80;
+  --warning: #FBBF24;
+  --danger: #F87171;
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+
+  /* Z-index system — موحّد لكل التطبيق */
+  --z-base: 1;
+  --z-card: 2;
+  --z-sticky-nav: 30;
+  --z-header: 40;
+  --z-sidebar: 50;
+  --z-dropdown: 300;
+  --z-toast: 500;
+  --z-modal: 1000;
+  --z-command-palette: 1100;
+}
+
+:root[data-theme="light"] {
+  --bg: #F4F6FA;
+  --surface: #FFFFFF;
+  --surface-hover: #F0F3F8;
+  --border: #E2E8F0;
+  --text: #1A2433;
+  --text-muted: #64748B;
+  --accent: #2D7DF6;
+  --accent-soft: rgba(45, 125, 246, 0.10);
+  --success: #16A34A;
+  --warning: #D97706;
+  --danger: #DC2626;
+  --shadow: 0 2px 12px rgba(15, 27, 45, 0.08);
+
+  /* Z-index system — نفس القيم في كلا الوضعين */
+  --z-base: 1;
+  --z-card: 2;
+  --z-sticky-nav: 30;
+  --z-header: 40;
+  --z-sidebar: 50;
+  --z-dropdown: 300;
+  --z-toast: 500;
+  --z-modal: 1000;
+  --z-command-palette: 1100;
+}
+
+* {
+  box-sizing: border-box;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  /* Tahoma: دعم عربي موثوق منذ Windows XP (fallback أساسي للعربي)
+     Segoe UI: يدعم العربي جيداً من Windows 8 فصاعداً ويُفضَّل بصرياً للإنجليزي
+     Arial/sans-serif: احتياطي أخير يدعم عربي أساسي على أي نظام */
+  font-family: "Segoe UI", Tahoma, "Inter", Arial, system-ui, sans-serif;
+}
+
+/* ===================================================================
+   Unicode Bidirectional Text (RTL/LTR) Support
+   يحل مشكلة الترتيب البصري الخاطئ عند مزج عربي + إنجليزي + أرقام +
+   علامات ترقيم/اقتباس في نفس الحقل (مثال: شيبسي "بيج شيبسي").
+   unicode-bidi: plaintext يجعل كل عنصر يحلّل اتجاهه بناءً على أول حرف
+   قوي فيه تلقائياً (نفس تأثير dir="auto" لكن عبر CSS شامل لكل عناصر
+   الإدخال والعرض دفعة واحدة، بدل تعديل مئات العناصر يدوياً).
+   =================================================================== */
+input, textarea, select {
+  unicode-bidi: plaintext;
+}
+
+/* عناصر عرض النصوص الحرة التي يكتبها المستخدم (اسم مصروف، ملاحظات، فئات) */
+.bidi-auto {
+  unicode-bidi: plaintext;
+  text-align: start; /* يحترم اتجاه المحتوى الفعلي بدل يسار/يمين ثابت */
+}
+
+/* البطاقة الموحدة المستخدمة في كل التطبيق */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 20px;
+}
+
+.text-muted { color: var(--text-muted); }
+.accent { color: var(--accent); }
+
+/* ===================================================================
+   Global Animation System (v2.7)
+   =================================================================== */
+
+/* ===================================================================
+   Global Motion System
+   نظام حركة موحّد لكل التطبيق: مدد وeasing curves ثابتة حتى يشعر
+   المستخدم أن كل تفاعل جزء من نظام واحد متكامل، لا تجميعة عشوائية.
+   كل الحركات هنا تعتمد على transform/opacity فقط (GPU-friendly)
+   لتفادي أي إعادة Layout غير ضرورية أو استهلاك CPU زائد.
+   =================================================================== */
+
+:root {
+  /* Durations — ثلاث سرعات فقط، لا أكثر، لضمان الاتساق */
+  --motion-fast: 120ms;    /* أزرار، هوفر، أشياء تفاعلية صغيرة */
+  --motion-base: 200ms;    /* دروب داون، مودالز، عناصر قوائم */
+  --motion-slow: 320ms;    /* انتقالات صفحات، دخول كروت */
+
+  /* Easing curves — منحنى واحد "دخول" وواحد "خروج" لكل الحركات */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);      /* حركة عامة متوازنة */
+  --ease-decelerate: cubic-bezier(0.16, 1, 0.3, 1);   /* دخول العناصر (تبدأ سريعة وتهدأ) */
+  --ease-accelerate: cubic-bezier(0.4, 0, 1, 1);      /* خروج العناصر */
+}
+
+/* احترام تفضيل المستخدم لتقليل الحركة — يُبطل كل الأنيميشن أدناه فوراً */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95) translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes popIn {
+  0%   { opacity: 0; transform: scale(0.8); }
+  60%  { opacity: 1; transform: scale(1.06); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes checkPop {
+  0%   { opacity: 0; transform: scale(0.5); }
+  100% { opacity: 1; transform: none; }
+}
+
+/* ── Page & Content Transitions ─────────────────────────────────── */
+/* صفحات كاملة/محتوى تظهر بانتقال خفيف وسريع — لا ينتظر المستخدم */
+.fade-in { animation: fadeInUp var(--motion-slow) var(--ease-decelerate) both; }
+.fade-in-item { animation: fadeInUp var(--motion-base) var(--ease-decelerate) both; }
+
+/* ── Staggered Entrance (Dashboard cards, لست كل عنصر) ──────────── */
+/* تُستخدم مع --stagger-index مضبوطة inline لكل عنصر لتأخير بسيط جداً بينهم */
+.kpi-card-in {
+  animation: fadeInUp var(--motion-slow) var(--ease-decelerate) both;
+  animation-delay: calc(var(--stagger-index, 0) * 40ms);
+}
+
+/* ── Modals & Dialogs ────────────────────────────────────────────── */
+.modal-in { animation: scaleIn var(--motion-base) var(--ease-decelerate) both; }
+
+/* ── Toasts & Notifications ─────────────────────────────────────── */
+.toast-in { animation: slideInRight var(--motion-base) var(--ease-decelerate) both; }
+
+/* ── Dropdowns & Popovers ────────────────────────────────────────── */
+.dropdown-menu-anim { animation: scaleIn var(--motion-fast) var(--ease-decelerate) both; }
+
+/* ── Progress bars & animated numbers ───────────────────────────── */
+.progress-bar-animated { transition: width 0.5s var(--ease-decelerate); }
+
+/* ── List item enter/exit (إضافة/حذف مصروف من القوائم) ──────────── */
+.list-item-enter { animation: fadeInUp var(--motion-base) var(--ease-decelerate) both; }
+.list-item-exit {
+  animation: fadeIn var(--motion-fast) var(--ease-accelerate) reverse both;
+  pointer-events: none;
+}
+
+/* ── Refresh / Loading feedback ──────────────────────────────────── */
+.spin-icon { animation: spin 0.8s linear infinite; }
+.success-pop { animation: checkPop var(--motion-base) var(--ease-decelerate) both; }
+
+/* ── Charts: ظهور أول مرة ────────────────────────────────────────── */
+.chart-in { animation: fadeIn var(--motion-slow) var(--ease-decelerate) both; }
+
+/* ── Buttons & Interactive Elements ──────────────────────────────── */
+button {
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard),
+    opacity var(--motion-fast) var(--ease-standard);
+}
+button:active:not(:disabled) { transform: scale(0.97); }
+button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.card {
+  transition:
+    box-shadow var(--motion-base) var(--ease-standard),
+    transform var(--motion-base) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard);
+}
+
+/* عناصر التقويم */
+.calendar-cell {
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard);
+}
+.calendar-cell:hover { transform: translateY(-1px); }
