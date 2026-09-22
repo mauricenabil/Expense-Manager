@@ -30,8 +30,13 @@ export default function DropdownPortal({ anchorRef, menuRef, open, children, ali
 
     const update = () => {
       const rect = anchorRef.current!.getBoundingClientRect();
+
+      // لا قسمة على أي معامل هنا. سابقاً كان الجذر مكبَّراً بـ zoom فتختلف
+      // وحدات position:fixed عن بكسلات getBoundingClientRect، أما الآن فتكبير
+      // الخط لا يمسّ التخطيط إطلاقاً، والإحداثيات تُستخدم كما هي.
       const top = rect.bottom + gap;
       const left = align === "right" ? rect.right - (width ?? rect.width) : rect.left;
+
       setPos({ top: Math.max(8, top), left: Math.max(8, left), minWidth: rect.width });
     };
 

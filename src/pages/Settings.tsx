@@ -1,9 +1,17 @@
-import { useEffect, useState, type CSSProperties, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
 import {
   Plus, Trash2, Pencil, Check, X, Tag as TagIcon, Download, Upload, Lock, Unlock, AlertTriangle,
-  SlidersHorizontal, FolderTree, Layers, CreditCard, Target, Repeat, ShieldCheck, DatabaseBackup, Skull, FileSpreadsheet, Pin, RefreshCw,
+  SlidersHorizontal, FolderTree, Layers, CreditCard, Target, Repeat, ShieldCheck, DatabaseBackup, Skull, FileSpreadsheet, Pin, RefreshCw, ArrowUpCircle,
+  Calendar as CalendarIcon, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { api } from "../lib/api";
+import { useDropdown } from "../lib/useDropdown";
+import DropdownPortal from "../components/DropdownPortal";
+import { weekdayLabels } from "../lib/dateRanges";
+import { type BackupSchedule, calcNextBackupDate } from "../lib/backupSchedule";
+import { useAutoBackup, type BackupFormat, type BackupHistory } from "../lib/useAutoBackup";
+import FontSizeSettings from "../components/FontSizeSettings";
+import UpdatePanel from "../components/UpdatePanel";
 import { useWeekStart } from "../context/WeekStartContext";
 import { useAuth } from "../context/AuthContext";
 import { useDataStore } from "../store/DataStore";
@@ -12,7 +20,7 @@ import * as XLSX from "xlsx";
 import { generateExpenseId, isValidExpenseId, deriveExpenseIdFromUuid } from "../lib/expenseId";
 import type { Category } from "../types";
 
-type SettingsTab = "general" | "categories" | "subcategories" | "payments" | "tags" | "budgets" | "savings" | "recurring" | "security" | "backup" | "danger";
+type SettingsTab = "general" | "categories" | "subcategories" | "payments" | "tags" | "budgets" | "savings" | "recurring" | "security" | "backup" | "update" | "danger";
 
 const TABS: { id: SettingsTab; label: string; icon: any }[] = [
   { id: "general", label: "General", icon: SlidersHorizontal },
@@ -25,29 +33,27 @@ const TABS: { id: SettingsTab; label: string; icon: any }[] = [
   { id: "recurring", label: "Recurring", icon: Repeat },
   { id: "security", label: "Security", icon: ShieldCheck },
   { id: "backup", label: "Backup", icon: DatabaseBackup },
+  { id: "update", label: "Update", icon: ArrowUpCircle },
   { id: "danger", label: "Danger Zone", icon: Skull },
 ];
 
 export default function Settings() {
   const [tab, setTab] = useState<SettingsTab>("general");
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // اللوحة بقت حاوية تمرير مستقلة، فلازم ترجع لأولها عند تبديل التبويب —
+  // وإلا التبويب الجديد بيفتح على نص المحتوى.
+  useEffect(() => { panelRef.current?.scrollTo({ top: 0 }); }, [tab]);
 
   return (
-    <div>
-      <h1 style={{ marginTop: 0 }}>Settings</h1>
+    <div className="settings-shell">
+      <h1 style={{ marginTop: 0, flexShrink: 0 }}>Settings</h1>
 
-      {/* ارتفاع محسوب يساوي المساحة المرئية المتاحة تحت الهيدر والعنوان،
-          بحيث الـ nav والمحتوى كل واحد له تمرير مستقل تماماً بدل الاعتماد
-          على position: sticky (الذي قد ينكسر بأي transform/filter مستقبلي
-          على أي عنصر أب في الصفحة). */}
-      <div style={{ display: "flex", gap: 24, alignItems: "flex-start", height: "calc(100vh - 160px)" }}>
-        {/* Professional vertical navigation — عمود مستقل تماماً، لا يشارك أبداً
-            في تمرير المحتوى المجاور، فيبقى ثابتاً بصرياً بشكل مضمون 100% */}
-        <nav
-          style={{
-            width: 200, flexShrink: 0, display: "flex", flexDirection: "column", gap: 2,
-            height: "100%", overflowY: "auto",
-          }}
-        >
+      {/* عمودان داخل ارتفاع منطقة التمرير: التبويبات ثابتة تماماً واللوحة
+          وحدها هي اللي بتتمرّر. التفاصيل في .settings-* داخل
+          enhancements-2026.css. */}
+      <div className="settings-body">
+        <nav className="settings-nav">
           {TABS.map((t) => {
             const Icon = t.icon;
             const active = tab === t.id;
@@ -58,8 +64,8 @@ export default function Settings() {
                 style={{
                   display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
                   borderRadius: 8, border: "none", textAlign: "left", cursor: "pointer",
-                  fontSize: 13, fontWeight: 600,
-                  color: active ? "#fff" : t.id === "danger" ? "var(--danger)" : "var(--text-muted)",
+                  fontSize: "calc(13px * var(--app-font-scale, 1))", fontWeight: 600,
+                  color: active ? "var(--on-accent)" : t.id === "danger" ? "var(--danger)" : "var(--text-muted)",
                   background: active ? "var(--accent)" : "transparent",
                   flexShrink: 0,
                 }}
@@ -70,9 +76,13 @@ export default function Settings() {
           })}
         </nav>
 
-        {/* Active panel — عمود مستقل بتمرير داخلي خاص به فقط */}
-        <div style={{ flex: 1, minWidth: 0, height: "100%", overflowY: "auto", paddingRight: 4 }}>
-          {tab === "general" && <GeneralPanel />}
+        <div className="settings-panel" ref={panelRef}>
+          {tab === "general" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <GeneralPanel />
+              <FontSizeSettings />
+            </div>
+          )}
           {tab === "categories" && <CategoriesPanel />}
           {tab === "subcategories" && <SubCategoriesPanel />}
           {tab === "payments" && <PaymentMethodsPanel />}
@@ -82,6 +92,7 @@ export default function Settings() {
           {tab === "recurring" && <RecurringExpensesPanel />}
           {tab === "security" && <SecurityPanel />}
           {tab === "backup" && <DataToolsPanel />}
+          {tab === "update" && <UpdatePanel />}
           {tab === "danger" && <DangerZonePanel />}
         </div>
       </div>
@@ -98,18 +109,18 @@ function GeneralPanel() {
   return (
     <div className="card">
       <h3 style={{ marginTop: 0 }}>General</h3>
-      <p className="text-muted" style={{ fontSize: 13 }}>
+      <p className="text-muted" style={{ fontSize: "calc(13px * var(--app-font-scale, 1))" }}>
         Expense Manager — Personal Edition. Currency: EGP. All data is stored 100% locally on this device,
         no internet connection or cloud account is required.
       </p>
-      <p className="text-muted" style={{ fontSize: 13 }}>
+      <p className="text-muted" style={{ fontSize: "calc(13px * var(--app-font-scale, 1))" }}>
         Use the navigation on the left to manage categories, payment methods, budgets, savings goals,
         recurring expenses, security, and backups.
       </p>
 
       <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
-        <strong style={{ fontSize: 13 }}>First Day of the Week</strong>
-        <p className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>
+        <strong style={{ fontSize: "calc(13px * var(--app-font-scale, 1))" }}>First Day of the Week</strong>
+        <p className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", marginTop: 4 }}>
           Affects the Calendar layout and all "This Week" / "Last Week" filters across the app.
         </p>
         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
@@ -165,7 +176,7 @@ function ListRow({
         )}
         <div>
           <div style={{ fontWeight: 600 }}>{label}</div>
-          {sublabel && <div className="text-muted" style={{ fontSize: 12 }}>{sublabel}</div>}
+          {sublabel && <div className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))" }}>{sublabel}</div>}
         </div>
       </div>
       <div style={{ display: "flex", gap: 6 }}>
@@ -209,13 +220,14 @@ const inputStyle: CSSProperties = {
   border: "1px solid var(--border)",
   background: "var(--surface-hover)",
   color: "var(--text)",
-  fontSize: 14,
+  fontSize: "calc(14px * var(--app-font-scale, 1))",
   outline: "none",
 };
 
+/* لوحة ألوان الفئات — من هوية 2026 (تُحفظ في قاعدة البيانات كـ hex حقيقي) */
 const COLOR_PALETTE = [
-  "#FF8A65", "#4DA3FF", "#FFC107", "#AB47BC",
-  "#EF5350", "#26C6DA", "#66BB6A", "#8AA0BD",
+  "#2E8B74", "#ED6F50", "#D6A032", "#5B8FD9",
+  "#A46FB0", "#D4564A", "#3FA9A0", "#8A93A6",
 ];
 
 /* =========================================================
@@ -255,7 +267,7 @@ function CategoriesPanel() {
     <div>
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-          <input
+          <input dir="auto"
             style={inputStyle}
             placeholder="Category name (e.g. Groceries)"
             value={name}
@@ -303,8 +315,8 @@ function CategoriesPanel() {
 const primaryBtnStyle: CSSProperties = {
   display: "flex", alignItems: "center", gap: 6,
   padding: "10px 16px", borderRadius: 8, border: "none",
-  background: "var(--accent)", color: "#fff", fontWeight: 600,
-  fontSize: 14, cursor: "pointer", whiteSpace: "nowrap",
+  background: "var(--accent)", color: "var(--on-accent)", fontWeight: 600,
+  fontSize: "calc(14px * var(--app-font-scale, 1))", cursor: "pointer", whiteSpace: "nowrap",
 };
 
 /* =========================================================
@@ -352,7 +364,7 @@ function SubCategoriesPanel() {
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
-        <input
+        <input dir="auto"
           style={inputStyle}
           placeholder="Sub-category name (e.g. Coffee Shops)"
           value={name}
@@ -411,7 +423,7 @@ function PaymentMethodsPanel() {
   return (
     <div>
       <div className="card" style={{ marginBottom: 16, display: "flex", gap: 8 }}>
-        <input
+        <input dir="auto"
           style={inputStyle}
           placeholder="Payment method (e.g. Instapay)"
           value={name}
@@ -456,7 +468,7 @@ function TagsPanel() {
   return (
     <div>
       <div className="card" style={{ marginBottom: 16, display: "flex", gap: 8 }}>
-        <input
+        <input dir="auto"
           style={inputStyle}
           placeholder="New tag (e.g. Subscription)"
           value={name}
@@ -477,7 +489,7 @@ function TagsPanel() {
             style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px" }}
           >
             <TagIcon size={14} color="var(--accent)" />
-            <span style={{ fontSize: 13 }}>{t.name}</span>
+            <span style={{ fontSize: "calc(13px * var(--app-font-scale, 1))" }}>{t.name}</span>
             <button onClick={() => handleDelete(t.id)} style={{ ...iconBtnStyle, width: 22, height: 22 }}>
               <X size={12} />
             </button>
@@ -512,7 +524,7 @@ function BudgetsPanel() {
       <div className="card" style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <div style={{ fontWeight: 600 }}>Enable Budget System</div>
-          <div className="text-muted" style={{ fontSize: 12 }}>When disabled, all budget UI is hidden across the app.</div>
+          <div className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))" }}>When disabled, all budget UI is hidden across the app.</div>
         </div>
         <ToggleSwitch checked={enabled} onChange={toggleEnabled} />
       </div>
@@ -532,7 +544,7 @@ function BudgetsPanel() {
             <button onClick={handleAdd} style={primaryBtnStyle}><Plus size={16} /> Add</button>
           </div>
 
-          <p className="text-muted" style={{ fontSize: 12, marginBottom: 10 }}>
+          <p className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", marginBottom: 10 }}>
             Click the pin icon to show a budget in the Sidebar for quick access.
           </p>
 
@@ -593,13 +605,13 @@ function SavingsGoalsPanel() {
   return (
     <div>
       <div className="card" style={{ marginBottom: 16, display: "flex", gap: 8 }}>
-        <input style={inputStyle} placeholder="Goal name (e.g. New Laptop)" value={name} onChange={(e) => setName(e.target.value)} />
+        <input dir="auto" style={inputStyle} placeholder="Goal name (e.g. New Laptop)" value={name} onChange={(e) => setName(e.target.value)} />
         <input type="number" style={inputStyle} placeholder="Target (EGP)" value={target} onChange={(e) => setTarget(e.target.value)} />
         <input type="date" style={inputStyle} value={date} onChange={(e) => setDate(e.target.value)} />
         <button onClick={handleAdd} style={primaryBtnStyle}><Plus size={16} /> Add</button>
       </div>
 
-      <p className="text-muted" style={{ fontSize: 12, marginBottom: 10 }}>
+      <p className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", marginBottom: 10 }}>
         Click the pin icon to show a goal in the Sidebar for quick access.
       </p>
 
@@ -611,7 +623,7 @@ function SavingsGoalsPanel() {
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
               <div>
                 <div style={{ fontWeight: 600 }}>{g.name}</div>
-                {g.target_date && <div className="text-muted" style={{ fontSize: 12 }}>Target date: {g.target_date}</div>}
+                {g.target_date && <div className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))" }}>Target date: {g.target_date}</div>}
               </div>
               <div style={{ display: "flex", gap: 6 }}>
                 <button
@@ -628,7 +640,7 @@ function SavingsGoalsPanel() {
               <div style={{ height: "100%", width: `${percent}%`, background: "var(--success)" }} />
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span className="text-muted" style={{ fontSize: 12 }}>{g.current_amount} / {g.target_amount} EGP ({Math.round(percent)}%)</span>
+              <span className="text-muted num" style={{ fontSize: "calc(12px * var(--app-font-scale, 1) * var(--num-font-scale, 1))" }}>{g.current_amount} / {g.target_amount} EGP ({Math.round(percent)}%)</span>
               <input
                 type="number" placeholder="Update saved amount" style={{ ...inputStyle, width: 160 }}
                 defaultValue={g.current_amount}
@@ -671,16 +683,16 @@ function RecurringExpensesPanel() {
 
   return (
     <div>
-      <p className="text-muted" style={{ fontSize: 13, marginBottom: 12 }}>
+      <p className="text-muted" style={{ fontSize: "calc(13px * var(--app-font-scale, 1))", marginBottom: 12 }}>
         Recurring expenses require manual confirmation — nothing is added automatically.
       </p>
       {confirmMsg && (
-        <div className="fade-in-item" style={{ fontSize: 12, marginBottom: 12, padding: "8px 12px", borderRadius: 8, background: "var(--success)18", color: "var(--success)" }}>
+        <div className="fade-in-item" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", marginBottom: 12, padding: "8px 12px", borderRadius: 8, background: "var(--success)18", color: "var(--success)" }}>
           {confirmMsg}
         </div>
       )}
       <div className="card" style={{ marginBottom: 16, display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <input style={{ ...inputStyle, flex: 2 }} placeholder="Name (e.g. Internet Bill)" value={name} onChange={(e) => setName(e.target.value)} />
+        <input dir="auto" style={{ ...inputStyle, flex: 2 }} placeholder="Name (e.g. Internet Bill)" value={name} onChange={(e) => setName(e.target.value)} />
         <input type="number" style={{ ...inputStyle, flex: 1 }} placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
         <select style={{ ...inputStyle, flex: 1 }} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
           <option value="">No Category</option>
@@ -700,8 +712,8 @@ function RecurringExpensesPanel() {
       {items.map((r) => (
         <div key={r.id} className="card" style={{ marginBottom: 8, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontWeight: 600 }}>{r.name} — {r.amount} EGP</div>
-            <div className="text-muted" style={{ fontSize: 12 }}>{r.frequency} · Next due: {r.next_due_date}</div>
+            <div style={{ fontWeight: 600 }}>{r.name} — <span className="num">{r.amount} EGP</span></div>
+            <div className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))" }}>{r.frequency} · Next due: {r.next_due_date}</div>
           </div>
           <div style={{ display: "flex", gap: 6 }}>
             <button onClick={() => handleConfirm(r.id)} style={primaryBtnStyle}>Confirm Now</button>
@@ -791,15 +803,15 @@ function SecurityPanel() {
           <button onClick={handleSetPassword} style={primaryBtnStyle}>{enabled ? "Change Password" : "Enable Password"}</button>
           {enabled && <button onClick={handleDisable} style={{ ...primaryBtnStyle, background: "var(--danger)" }}>Disable</button>}
         </div>
-        {message && <div className="text-muted" style={{ fontSize: 12, marginTop: 8 }}>{message}</div>}
+        {message && <div className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", marginTop: 8 }}>{message}</div>}
 
         {recoveryCode && (
           <div className="card" style={{ marginTop: 14, background: "var(--accent-soft)", border: "1px solid var(--accent)" }}>
-            <strong style={{ fontSize: 13 }}>Your Recovery Code (save it somewhere safe — shown only once):</strong>
-            <div style={{ fontFamily: "monospace", fontSize: 20, fontWeight: 700, letterSpacing: 2, marginTop: 8, color: "var(--accent)" }}>
+            <strong style={{ fontSize: "calc(13px * var(--app-font-scale, 1))" }}>Your Recovery Code (save it somewhere safe — shown only once):</strong>
+            <div style={{ fontFamily: "monospace", fontSize: "calc(20px * var(--app-font-scale, 1))", fontWeight: 700, letterSpacing: 2, marginTop: 8, color: "var(--accent)" }}>
               {recoveryCode}
             </div>
-            <p className="text-muted" style={{ fontSize: 12, marginTop: 8, marginBottom: 0 }}>
+            <p className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", marginTop: 8, marginBottom: 0 }}>
               If you forget your password, use this code on the lock screen (or here in Settings) to set a new one.
               Generating a new password automatically replaces this code with a fresh one.
             </p>
@@ -810,14 +822,14 @@ function SecurityPanel() {
       {enabled && (
         <div className="card" style={{ marginBottom: 16 }}>
           <strong>Forgot Your Password?</strong>
-          <p className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>
+          <p className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", marginTop: 4 }}>
             Use the Recovery Code you saved when you first set your password.
           </p>
           {!showRecoveryReset ? (
             <button onClick={() => setShowRecoveryReset(true)} style={secondaryBtnStyle}>Reset Password with Recovery Code</button>
           ) : (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <input style={inputStyle} placeholder="Recovery Code (XXXXXX-XXXXXX)" value={recoveryInput} onChange={(e) => setRecoveryInput(e.target.value)} />
+              <input dir="auto" style={inputStyle} placeholder="Recovery Code (XXXXXX-XXXXXX)" value={recoveryInput} onChange={(e) => setRecoveryInput(e.target.value)} />
               <input type="password" style={inputStyle} placeholder="New password" value={recoveryNewPassword} onChange={(e) => setRecoveryNewPassword(e.target.value)} />
               <button onClick={handleResetWithRecovery} style={primaryBtnStyle}>Reset Password</button>
               <button onClick={() => setShowRecoveryReset(false)} style={secondaryBtnStyle}>Cancel</button>
@@ -828,7 +840,7 @@ function SecurityPanel() {
 
       <div className="card">
         <strong>Auto Lock</strong>
-        <p className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>Automatically lock the app after a period of inactivity (requires password enabled).</p>
+        <p className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", marginTop: 4 }}>Automatically lock the app after a period of inactivity (requires password enabled).</p>
         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
           {[null, 5, 10, 15].map((m) => (
             <button
@@ -845,205 +857,28 @@ function SecurityPanel() {
   );
 }
 
-const chipStyle: CSSProperties = { padding: "8px 14px", borderRadius: 20, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-muted)", fontSize: 13, cursor: "pointer" };
-const chipActiveStyle: CSSProperties = { background: "var(--accent)", color: "#fff", borderColor: "var(--accent)" };
-const secondaryBtnStyle: CSSProperties = { display: "flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-hover)", color: "var(--text)", fontWeight: 600, fontSize: 14, cursor: "pointer" };
+const chipStyle: CSSProperties = { padding: "8px 14px", borderRadius: 20, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-muted)", fontSize: "calc(13px * var(--app-font-scale, 1))", cursor: "pointer" };
+const chipActiveStyle: CSSProperties = { background: "var(--accent)", color: "var(--on-accent)", borderColor: "var(--accent)" };
+const dayCellStyle: CSSProperties = { height: 30, borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-hover)", color: "var(--text)", fontSize: "calc(12px * var(--app-font-scale, 1))", fontWeight: 600, cursor: "pointer", padding: 0 };
+const miniIconBtnStyle: CSSProperties = { background: "var(--surface-hover)", border: "1px solid var(--border)", borderRadius: 6, width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text)", padding: 0 };
+const secondaryBtnStyle: CSSProperties = { display: "flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-hover)", color: "var(--text)", fontWeight: 600, fontSize: "calc(14px * var(--app-font-scale, 1))", cursor: "pointer" };
 
-/* =========================================================
-   Auto Backup System
-   Architecture notes:
-   - Settings stored in localStorage (work both in browser preview and desktop)
-   - Actual file writing in desktop mode goes through Tauri fs plugin (see Desktop build)
-   - In browser preview mode: downloads file via blob URL (simulated)
-   - Future-ready: cloud provider integration point is marked clearly below
-   ========================================================= */
-
-type BackupFormat = "json" | "excel" | "csv";
-type BackupSchedule = "weekly" | "monthly" | "quarterly" | "biannual" | "yearly";
-type BackupHistory = 5 | 10 | 20 | "unlimited";
-
-interface AutoBackupSettings {
-  enabled: boolean;
-  format: BackupFormat;
-  schedule: BackupSchedule;
-  maxHistory: BackupHistory;
-  lastBackupDate: string | null;
-  nextBackupDate: string | null;
-  storedBackups: { name: string; date: string; size: string }[];
-}
-
-const BACKUP_SETTINGS_KEY = "expense-manager-auto-backup-settings";
-
-function loadBackupSettings(): AutoBackupSettings {
-  try {
-    const raw = localStorage.getItem(BACKUP_SETTINGS_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-  return {
-    enabled: false, format: "json", schedule: "monthly", maxHistory: 10,
-    lastBackupDate: null, nextBackupDate: null, storedBackups: [],
-  };
-}
-
-function saveBackupSettings(s: AutoBackupSettings) {
-  localStorage.setItem(BACKUP_SETTINGS_KEY, JSON.stringify(s));
-}
-
-function calcNextBackupDate(schedule: BackupSchedule, from: Date = new Date()): string {
-  const d = new Date(from);
-  switch (schedule) {
-    case "weekly": d.setDate(d.getDate() + 7); break;
-    case "monthly": d.setMonth(d.getMonth() + 1); break;
-    case "quarterly": d.setMonth(d.getMonth() + 3); break;
-    case "biannual": d.setMonth(d.getMonth() + 6); break;
-    case "yearly": d.setFullYear(d.getFullYear() + 1); break;
-  }
-  return d.toISOString().slice(0, 10);
-}
+const BACKUP_CAL_MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
 function AutoBackupSection() {
-  const { expenses } = useDataStore();
-  const [settings, setSettings] = useState<AutoBackupSettings>(loadBackupSettings);
-  const [backingUp, setBackingUp] = useState(false);
-  const [msg, setMsg] = useState("");
-  const [backupFolder, setBackupFolder] = useState<string | null>(null);
-  const [folderStatus, setFolderStatus] = useState<"ok" | "unavailable" | "unset">("unset");
+  const dayPicker = useDropdown<HTMLButtonElement>();
+  const { weekStart } = useWeekStart();
+  // شهر المعاينة في تقويم اختيار يوم النسخ الاحتياطي — يبدأ بالشهر الحالي،
+  // وينفصل عن أي تنقّل شهري تاني في الصفحة عشان المستخدم يقدر يتصفح فبراير
+  // (٢٨ يوم) أو أبريل (٣٠ يوم) ويشوف الفرق قبل ما يختار.
+  const [calCursor, setCalCursor] = useState(new Date());
 
-  // تحميل المسار المحفوظ عند فتح الصفحة (يستمر عبر إعادة تشغيل التطبيق لأنه محفوظ في قاعدة البيانات)
-  useEffect(() => {
-    api.getAppSetting("backup_folder").then(async (folder) => {
-      if (folder) {
-        setBackupFolder(folder);
-        const writable = await api.checkFolderWritable(folder);
-        setFolderStatus(writable ? "ok" : "unavailable");
-      }
-    });
-  }, []);
-
-  const handleChangeLocation = async () => {
-    const folder = await api.pickBackupFolder();
-    if (!folder) return; // المستخدم ألغى الاختيار
-    await api.setAppSetting("backup_folder", folder);
-    setBackupFolder(folder);
-    const writable = await api.checkFolderWritable(folder);
-    setFolderStatus(writable ? "ok" : "unavailable");
-  };
-
-  const handleOpenFolder = async () => {
-    if (!backupFolder) return;
-    await api.openFolderInExplorer(backupFolder);
-  };
-
-  const save = (partial: Partial<AutoBackupSettings>) => {
-    const next = { ...settings, ...partial };
-    if (partial.schedule) next.nextBackupDate = calcNextBackupDate(partial.schedule);
-    setSettings(next);
-    saveBackupSettings(next);
-  };
-
-  const doBackup = async (triggered: "manual" | "auto" = "manual") => {
-    setBackingUp(true);
-    setMsg("");
-    try {
-      const now = new Date();
-      const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}-${String(now.getMinutes()).padStart(2, "0")}`;
-      const baseName = `ExpenseManager_Backup_${dateStr}`;
-
-      let blob: Blob;
-      let filename: string;
-
-      if (settings.format === "json") {
-        const json = JSON.stringify({ expenses, exportedAt: now.toISOString() }, null, 2);
-        blob = new Blob([json], { type: "application/json" });
-        filename = `${baseName}.json`;
-      } else if (settings.format === "excel") {
-        // نفس منطق التصدير اليدوي: xlsx حقيقي عبر SheetJS، يحفظ العربي بدون أي تشويه
-        // ويفتح في Microsoft Excel بدون أي تحذير Format
-        const wsData = expenses.map((e) => ({
-          "Expense ID":     isValidExpenseId(e.id) ? e.id : deriveExpenseIdFromUuid(e.id, e.date),
-          "Name":           e.name,
-          "Date":           e.date,
-          "Amount (EGP)":   e.amount,
-          "Category":       e.category_name ?? "",
-          "Payment Method": e.payment_method_name ?? "",
-          "Notes":          e.description ?? "",
-        }));
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.json_to_sheet(wsData);
-        ws["!cols"] = [{ wch: 22 }, { wch: 28 }, { wch: 13 }, { wch: 14 }, { wch: 20 }, { wch: 20 }, { wch: 30 }];
-        XLSX.utils.book_append_sheet(wb, ws, "Expenses");
-        const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-        blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-        filename = `${baseName}.xlsx`;
-      } else {
-        const escapeCsv = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
-        const rows = expenses.map((e) =>
-          [e.name, e.date, e.amount, e.category_name ?? "", e.payment_method_name ?? "", e.description ?? ""]
-            .map(escapeCsv).join(",")
-        );
-        // BOM في البداية يضمن فتح Excel للملف كـ UTF-8 صحيح فيبان العربي سليم بدل رموز مشوّهة
-        const csvContent = "\uFEFF" + ["Name,Date,Amount,Category,Payment Method,Notes", ...rows].join("\n");
-        blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-        filename = `${baseName}.csv`;
-      }
-
-      // لو المستخدم حدّد مجلد Backup: نتحقق أولاً من إمكانية الكتابة الفعلية (قد يكون محذوفاً،
-      // أو قرص خارجي مفصول، أو بدون صلاحية) قبل أي محاولة كتابة — بدون أي Crash في كل الحالات
-      let savedTo = "";
-      if (backupFolder) {
-        const writable = await api.checkFolderWritable(backupFolder);
-        if (!writable) {
-          setMsg(`❌ Automatic backup could not run — the backup folder is unavailable:\n${backupFolder}\nCheck that the folder still exists and is writable (e.g. external drive connected), then try again.`);
-          setFolderStatus("unavailable");
-          return;
-        }
-        setFolderStatus("ok");
-        const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
-        savedTo = await api.writeBackupFile(backupFolder, filename, bytes);
-      } else {
-        // مفيش مجلد محدد: نستخدم تنزيل المتصفح العادي (المسار الافتراضي لتنزيلات المتصفح/التطبيق)
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
-        URL.revokeObjectURL(url);
-        savedTo = filename;
-      }
-
-      const sizeKB = Math.round(blob.size / 1024);
-      const newBackup = { name: filename, date: now.toISOString().slice(0, 16).replace("T", " "), size: `${sizeKB} KB` };
-
-      // Apply max history limit
-      let storedBackups = [newBackup, ...settings.storedBackups];
-      if (settings.maxHistory !== "unlimited") {
-        storedBackups = storedBackups.slice(0, settings.maxHistory);
-      }
-
-      const updated: AutoBackupSettings = {
-        ...settings,
-        lastBackupDate: now.toISOString().slice(0, 10),
-        nextBackupDate: calcNextBackupDate(settings.schedule, now),
-        storedBackups,
-      };
-      setSettings(updated);
-      saveBackupSettings(updated);
-      setMsg(
-        triggered === "manual"
-          ? `✅ Backup saved: ${filename}${backupFolder ? `\n📁 ${savedTo}` : ""}`
-          : `✅ Auto backup completed: ${filename}${backupFolder ? `\n📁 ${savedTo}` : ""}`
-      );
-    } catch (err) {
-      setMsg(`❌ Automatic backup failed: ${String(err)}`);
-    } finally {
-      setBackingUp(false); }
-  };
-
-  // Check if auto backup is due on component mount
-  useEffect(() => {
-    if (!settings.enabled || !settings.nextBackupDate) return;
-    const today = new Date().toISOString().slice(0, 10);
-    if (today >= settings.nextBackupDate) {
-      doBackup("auto");
-    }
-  }, []);
+  // كل الحالة والمنطق (تحميل/حفظ الإعدادات، تنفيذ النسخة، والفحص التلقائي عند بدء التشغيل)
+  // في هوك مشترك — بيشتغل بنفس الطريقة هنا وفي AutoBackupRunner عند إقلاع التطبيق.
+  const {
+    settings, save, doBackup, backingUp, msg,
+    backupFolder, folderStatus, handleChangeLocation, handleOpenFolder,
+  } = useAutoBackup();
 
   const SCHEDULE_LABELS: Record<BackupSchedule, string> = {
     weekly: "Every Week", monthly: "Every Month",
@@ -1057,13 +892,13 @@ function AutoBackupSection() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
         <div>
           <h3 style={{ margin: 0 }}>Automatic Backup</h3>
-          <p className="text-muted" style={{ fontSize: 12, marginTop: 4, marginBottom: 0 }}>
+          <p className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", marginTop: 4, marginBottom: 0 }}>
             Set it and forget it — the app backs up your data automatically on a schedule.
           </p>
         </div>
         <ToggleSwitch checked={settings.enabled} onChange={() => {
           const enabled = !settings.enabled;
-          save({ enabled, nextBackupDate: enabled ? calcNextBackupDate(settings.schedule) : null });
+          save({ enabled, nextBackupDate: enabled ? calcNextBackupDate(settings.schedule, settings.backupDay) : null });
         }} />
       </div>
 
@@ -1074,26 +909,26 @@ function AutoBackupSection() {
           { label: "Last Backup", value: settings.lastBackupDate || "Never" },
           { label: "Next Backup", value: settings.enabled ? (settings.nextBackupDate || "—") : "—" },
           { label: "Format", value: settings.format.toUpperCase() },
-          { label: "Frequency", value: SCHEDULE_LABELS[settings.schedule] },
+          { label: "Frequency", value: settings.schedule === "weekly" ? SCHEDULE_LABELS.weekly : `${SCHEDULE_LABELS[settings.schedule]} · Day ${settings.backupDay}` },
           { label: "Stored Backups", value: `${settings.storedBackups.length} ${settings.maxHistory !== "unlimited" ? `/ ${settings.maxHistory}` : ""}` },
         ].map(({ label, value, color }) => (
           <div key={label} style={{ padding: "10px 12px", background: "var(--surface-hover)", borderRadius: 8 }}>
-            <div className="text-muted" style={{ fontSize: 11 }}>{label}</div>
-            <div style={{ fontWeight: 700, fontSize: 13, marginTop: 2, color: color || "var(--text)" }}>{value}</div>
+            <div className="text-muted" style={{ fontSize: "calc(11px * var(--app-font-scale, 1))" }}>{label}</div>
+            <div style={{ fontWeight: 700, fontSize: "calc(13px * var(--app-font-scale, 1))", marginTop: 2, color: color || "var(--text)" }}>{value}</div>
           </div>
         ))}
       </div>
 
       {/* Backup Location */}
       <div style={{ marginBottom: 16, padding: "12px 14px", background: "var(--surface-hover)", borderRadius: 8 }}>
-        <div className="text-muted" style={{ fontSize: 12, marginBottom: 6, fontWeight: 600 }}>Backup Location</div>
+        <div className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", marginBottom: 6, fontWeight: 600 }}>Backup Location</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-          <span style={{ fontSize: 13, fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+          <span style={{ fontSize: "calc(13px * var(--app-font-scale, 1))", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
             {backupFolder || "Not set — using browser default downloads"}
           </span>
           {backupFolder && (
             <span style={{
-              fontSize: 10, padding: "2px 8px", borderRadius: 20, fontWeight: 700,
+              fontSize: "calc(10px * var(--app-font-scale, 1))", padding: "2px 8px", borderRadius: 20, fontWeight: 700,
               background: folderStatus === "ok" ? "var(--success)22" : "var(--danger)22",
               color: folderStatus === "ok" ? "var(--success)" : "var(--danger)",
             }}>
@@ -1109,7 +944,7 @@ function AutoBackupSection() {
 
       {/* Format */}
       <div style={{ marginBottom: 12 }}>
-        <div className="text-muted" style={{ fontSize: 12, marginBottom: 6, fontWeight: 600 }}>Backup Format</div>
+        <div className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", marginBottom: 6, fontWeight: 600 }}>Backup Format</div>
         <div style={{ display: "flex", gap: 8 }}>
           {(["json", "excel", "csv"] as BackupFormat[]).map((f) => (
             <button key={f} onClick={() => save({ format: f })} style={{ ...chipStyle, ...(settings.format === f ? chipActiveStyle : {}) }}>
@@ -1121,22 +956,110 @@ function AutoBackupSection() {
 
       {/* Schedule */}
       <div style={{ marginBottom: 12 }}>
-        <div className="text-muted" style={{ fontSize: 12, marginBottom: 6, fontWeight: 600 }}>Schedule</div>
+        <div className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", marginBottom: 6, fontWeight: 600 }}>Schedule</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {(Object.keys(SCHEDULE_LABELS) as BackupSchedule[]).map((s) => (
-            <button key={s} onClick={() => save({ schedule: s })} style={{ ...chipStyle, fontSize: 12, ...(settings.schedule === s ? chipActiveStyle : {}) }}>
+            <button key={s} onClick={() => save({ schedule: s })} style={{ ...chipStyle, fontSize: "calc(12px * var(--app-font-scale, 1))", ...(settings.schedule === s ? chipActiveStyle : {}) }}>
               {SCHEDULE_LABELS[s]}
             </button>
           ))}
         </div>
       </div>
 
+      {/* Backup day of month — يظهر مع كل التكرارات ما عدا الأسبوعي */}
+      <div style={{ marginBottom: 12 }}>
+        <div className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", marginBottom: 6, fontWeight: 600 }}>Backup Day</div>
+        {settings.schedule === "weekly" ? (
+          <div className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))" }}>
+            Weekly backups run every 7 days. Choose Monthly, Every 3/6 Months or Yearly to pick a specific day of the month.
+          </div>
+        ) : (
+          <>
+            <button
+              ref={dayPicker.triggerRef}
+              onClick={dayPicker.toggle}
+              style={{ ...chipStyle, display: "inline-flex", alignItems: "center", gap: 8, fontSize: "calc(13px * var(--app-font-scale, 1))" }}
+            >
+              <CalendarIcon size={14} /> Day {settings.backupDay} of the month
+            </button>
+            <DropdownPortal anchorRef={dayPicker.triggerRef} menuRef={dayPicker.menuRef} open={dayPicker.open} width={280} align="left">
+              <div className="card" style={{ padding: 12 }}>
+                <div className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", fontWeight: 600, marginBottom: 8 }}>
+                  Run the automatic backup on day:
+                </div>
+
+                {(() => {
+                  const calYear = calCursor.getFullYear();
+                  const calMonth = calCursor.getMonth();
+                  const calDaysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+                  const calFirstDayOfWeek = (new Date(calYear, calMonth, 1).getDay() - weekStart + 7) % 7;
+                  const calCells: (number | null)[] = [
+                    ...Array(calFirstDayOfWeek).fill(null),
+                    ...Array.from({ length: calDaysInMonth }, (_, i) => i + 1),
+                  ];
+                  return (
+                    <>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                        <button type="button" aria-label="Previous month" onClick={() => setCalCursor(new Date(calYear, calMonth - 1, 1))} style={miniIconBtnStyle}>
+                          <ChevronLeft size={14} />
+                        </button>
+                        <div style={{ fontSize: "calc(12.5px * var(--app-font-scale, 1))", fontWeight: 600 }}>
+                          {BACKUP_CAL_MONTHS[calMonth]} {calYear}
+                        </div>
+                        <button type="button" aria-label="Next month" onClick={() => setCalCursor(new Date(calYear, calMonth + 1, 1))} style={miniIconBtnStyle}>
+                          <ChevronRight size={14} />
+                        </button>
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 4 }}>
+                        {weekdayLabels(weekStart).map((d) => (
+                          <div key={d} className="text-muted" style={{ textAlign: "center", fontSize: "calc(10px * var(--app-font-scale, 1))", fontWeight: 600 }}>
+                            {d[0]}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+                        {calCells.map((d, i) =>
+                          d === null ? (
+                            <div key={i} />
+                          ) : (
+                            <button
+                              key={i}
+                              onClick={() => { save({ backupDay: d }); dayPicker.setOpen(false); }}
+                              style={{ ...dayCellStyle, ...(settings.backupDay === d ? chipActiveStyle : {}) }}
+                            >
+                              {d}
+                            </button>
+                          )
+                        )}
+                      </div>
+
+                      {settings.backupDay > calDaysInMonth && (
+                        <div style={{ marginTop: 8, padding: "6px 8px", borderRadius: 6, background: "var(--warning)22", color: "var(--warning)", fontSize: "calc(11px * var(--app-font-scale, 1))" }}>
+                          Day {settings.backupDay} doesn't exist in {BACKUP_CAL_MONTHS[calMonth]} — the backup will run on day {calDaysInMonth} (the last day) instead.
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+
+                <div className="text-muted" style={{ fontSize: "calc(11px * var(--app-font-scale, 1))", marginTop: 8 }}>
+                  Browse months with the arrows above to see how each length maps — February has 28 or 29 days, April/June/September/November have 30.
+                  In shorter months the backup runs on the last day instead.
+                </div>
+              </div>
+            </DropdownPortal>
+          </>
+        )}
+      </div>
+
       {/* History limit */}
       <div style={{ marginBottom: 16 }}>
-        <div className="text-muted" style={{ fontSize: 12, marginBottom: 6, fontWeight: 600 }}>Keep Maximum</div>
+        <div className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", marginBottom: 6, fontWeight: 600 }}>Keep Maximum</div>
         <div style={{ display: "flex", gap: 8 }}>
           {([5, 10, 20, "unlimited"] as BackupHistory[]).map((h) => (
-            <button key={String(h)} onClick={() => save({ maxHistory: h })} style={{ ...chipStyle, fontSize: 12, ...(settings.maxHistory === h ? chipActiveStyle : {}) }}>
+            <button key={String(h)} onClick={() => save({ maxHistory: h })} style={{ ...chipStyle, fontSize: "calc(12px * var(--app-font-scale, 1))", ...(settings.maxHistory === h ? chipActiveStyle : {}) }}>
               {HISTORY_LABELS[String(h)]}
             </button>
           ))}
@@ -1148,15 +1071,15 @@ function AutoBackupSection() {
         <button onClick={() => doBackup("manual")} disabled={backingUp} style={primaryBtnStyle}>
           <Download size={16} /> {backingUp ? "Backing up..." : "Backup Now"}
         </button>
-        {msg && <span style={{ fontSize: 12, color: msg.startsWith("✅") ? "var(--success)" : "var(--danger)" }}>{msg}</span>}
+        {msg && <span style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", color: msg.startsWith("✅") ? "var(--success)" : "var(--danger)" }}>{msg}</span>}
       </div>
 
       {/* Stored Backups History */}
       {settings.storedBackups.length > 0 && (
         <div style={{ marginTop: 14, borderTop: "1px solid var(--border)", paddingTop: 14 }}>
-          <div className="text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Backup History</div>
+          <div className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", fontWeight: 600, marginBottom: 8 }}>Backup History</div>
           {settings.storedBackups.map((b) => (
-            <div key={b.name} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "5px 0", borderTop: "1px solid var(--border)" }}>
+            <div key={b.name} style={{ display: "flex", justifyContent: "space-between", fontSize: "calc(12px * var(--app-font-scale, 1))", padding: "5px 0", borderTop: "1px solid var(--border)" }}>
               <span style={{ fontFamily: "monospace", color: "var(--accent)" }}>{b.name}</span>
               <span className="text-muted">{b.date} · {b.size}</span>
             </div>
@@ -1519,7 +1442,7 @@ function DataToolsPanel() {
         }
       });
 
-      const DEFAULT_COLORS = ["#4DA3FF","#FF8A65","#66BB6A","#FFC107","#AB47BC","#EF5350","#26C6DA","#8AA0BD"];
+      const DEFAULT_COLORS = ["#2E8B74","#ED6F50","#D6A032","#5B8FD9","#A46FB0","#D4564A","#3FA9A0","#8A93A6"];
       let colorIdx = existingCategories.length;
       for (const catName of newCatNames) {
         await api.createCategory(catName, undefined, DEFAULT_COLORS[colorIdx % DEFAULT_COLORS.length]);
@@ -1628,7 +1551,7 @@ function DataToolsPanel() {
 
       <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginTop: 0 }}>Backup & Restore (JSON)</h3>
-        <p className="text-muted" style={{ fontSize: 13 }}>
+        <p className="text-muted" style={{ fontSize: "calc(13px * var(--app-font-scale, 1))" }}>
           Export a full JSON backup of your data regularly. Keep it somewhere safe (USB drive, cloud storage)
           in case anything happens to this computer. This is the recommended format for full restore.
         </p>
@@ -1645,20 +1568,20 @@ function DataToolsPanel() {
 
       <div className="card">
         <h3 style={{ marginTop: 0 }}>Excel Export / Import</h3>
-        <p className="text-muted" style={{ fontSize: 13 }}>
+        <p className="text-muted" style={{ fontSize: "calc(13px * var(--app-font-scale, 1))" }}>
           Export your expenses as an Excel-compatible file for spreadsheets and reporting.
           Import auto-detects columns by name and content — a dedicated Name column is optional.
         </p>
 
         <div style={{ marginBottom: 10 }}>
-          <div className="text-muted" style={{ fontSize: 12, marginBottom: 6, fontWeight: 600 }}>
+          <div className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", marginBottom: 6, fontWeight: 600 }}>
             Ambiguous Date Format (used only when a date like 02/07/2026 could mean either)
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setDateFormat("DMY")} style={{ ...chipStyle, fontSize: 12, ...(dateFormat === "DMY" ? chipActiveStyle : {}) }}>
+            <button onClick={() => setDateFormat("DMY")} style={{ ...chipStyle, fontSize: "calc(12px * var(--app-font-scale, 1))", ...(dateFormat === "DMY" ? chipActiveStyle : {}) }}>
               Day/Month/Year (02/07 → 2 Jul)
             </button>
-            <button onClick={() => setDateFormat("MDY")} style={{ ...chipStyle, fontSize: 12, ...(dateFormat === "MDY" ? chipActiveStyle : {}) }}>
+            <button onClick={() => setDateFormat("MDY")} style={{ ...chipStyle, fontSize: "calc(12px * var(--app-font-scale, 1))", ...(dateFormat === "MDY" ? chipActiveStyle : {}) }}>
               Month/Day/Year (02/07 → Feb 7)
             </button>
           </div>
@@ -1675,7 +1598,7 @@ function DataToolsPanel() {
         </div>
         {message && (
           <div style={{
-            fontSize: 12, marginTop: 10, padding: "8px 12px", borderRadius: 8,
+            fontSize: "calc(12px * var(--app-font-scale, 1))", marginTop: 10, padding: "8px 12px", borderRadius: 8,
             background: message.startsWith("✅") ? "var(--success)18" : message.startsWith("⚠") ? "var(--warning)18" : "var(--danger)18",
             color: message.startsWith("✅") ? "var(--success)" : message.startsWith("⚠") ? "var(--warning)" : "var(--danger)",
             border: `1px solid ${message.startsWith("✅") ? "var(--success)" : message.startsWith("⚠") ? "var(--warning)" : "var(--danger)"}44`,
@@ -1747,7 +1670,7 @@ function DangerZonePanel() {
         <AlertTriangle size={18} color="var(--danger)" />
         <h3 style={{ margin: 0, color: "var(--danger)" }}>Danger Zone</h3>
       </div>
-      <p className="text-muted" style={{ fontSize: 13 }}>
+      <p className="text-muted" style={{ fontSize: "calc(13px * var(--app-font-scale, 1))" }}>
         Permanently delete all expenses, categories, and settings. This cannot be undone.
         {" "}If password protection is enabled, you will be asked to confirm your password first.
       </p>
@@ -1767,7 +1690,7 @@ function DangerZonePanel() {
       <button onClick={handleDeleteAll} disabled={busy} style={{ ...primaryBtnStyle, background: "var(--danger)" }}>
         Delete All Data
       </button>
-      {message && <div className="text-muted" style={{ fontSize: 12, marginTop: 10 }}>{message}</div>}
+      {message && <div className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", marginTop: 10 }}>{message}</div>}
     </div>
   );
 }

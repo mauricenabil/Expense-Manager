@@ -72,17 +72,17 @@ export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
                 </div>
               )}
               <div>
-                {pending.title && <h3 style={{ margin: "0 0 6px", fontSize: 16 }}>{pending.title}</h3>}
-                <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5, whiteSpace: "pre-line" }}>{pending.message}</p>
+                {pending.title && <h3 style={{ margin: "0 0 6px", fontSize: "calc(16px * var(--app-font-scale, 1))" }}>{pending.title}</h3>}
+                <p style={{ margin: 0, fontSize: "calc(13px * var(--app-font-scale, 1))", color: "var(--text-muted)", lineHeight: 1.5, whiteSpace: "pre-line" }}>{pending.message}</p>
               </div>
             </div>
 
             {needsTyping && (
               <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
+                <label style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
                   Type <strong style={{ color: "var(--text)" }}>{pending.typeToConfirm}</strong> to confirm:
                 </label>
-                <input
+                <input dir="auto"
                   autoFocus
                   value={typedText}
                   onChange={(e) => setTypedText(e.target.value)}
@@ -135,16 +135,16 @@ const dialogStyle: CSSProperties = { width: 420, maxWidth: "90vw" };
 const typeInputStyle: CSSProperties = {
   width: "100%", padding: "10px 12px", borderRadius: 8,
   border: "1px solid var(--border)", background: "var(--surface-hover)",
-  color: "var(--text)", fontSize: 14, outline: "none", boxSizing: "border-box",
+  color: "var(--text)", fontSize: "calc(14px * var(--app-font-scale, 1))", outline: "none", boxSizing: "border-box",
 };
 
 const cancelBtnStyle: CSSProperties = {
   padding: "9px 16px", borderRadius: 8, border: "1px solid var(--border)",
   background: "var(--surface-hover)", color: "var(--text)", fontWeight: 600,
-  fontSize: 13, cursor: "pointer",
+  fontSize: "calc(13px * var(--app-font-scale, 1))", cursor: "pointer",
 };
 
 const confirmBtnStyle: CSSProperties = {
-  padding: "9px 16px", borderRadius: 8, border: "none", color: "#fff",
-  fontWeight: 600, fontSize: 13,
+  padding: "9px 16px", borderRadius: 8, border: "none", color: "var(--on-danger)",
+  fontWeight: 600, fontSize: "calc(13px * var(--app-font-scale, 1))",
 };

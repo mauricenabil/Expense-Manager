@@ -11,6 +11,10 @@ import type {
   SavingsGoal,
   RecurringExpense,
   ActivityLogEntry,
+  PlannedPurchase,
+  PlannedPurchaseInput,
+  UpdateFileInfo,
+  AppPaths,
 } from "../types";
 import { isTauri } from "./platform";
 import { mockApi } from "./mockApi";
@@ -74,6 +78,7 @@ const realApi = {
         sub_category_id: null,
         payment_method_id: null,
         description: null,
+        tag_ids: [],
         ...expense,
       },
     }),
@@ -84,6 +89,7 @@ const realApi = {
         sub_category_id: null,
         payment_method_id: null,
         description: null,
+        tag_ids: [],
         ...expense,
       },
     }),
@@ -132,6 +138,18 @@ const realApi = {
     invoke<string>("confirm_recurring_expense", { recurringId, date }),
   deleteRecurringExpense: (id: string) => invoke<void>("delete_recurring_expense", { id }),
 
+  // ---------- Planned Purchases ----------
+  getPlannedPurchases: () => invoke<PlannedPurchase[]>("get_planned_purchases"),
+  createPlannedPurchase: (input: PlannedPurchaseInput) =>
+    invoke<string>("create_planned_purchase", { input }),
+  updatePlannedPurchase: (id: string, input: PlannedPurchaseInput) =>
+    invoke<void>("update_planned_purchase", { id, input }),
+  convertPlannedToExpense: (id: string, date: string, actualAmount: number | null) =>
+    invoke<string>("convert_planned_to_expense", { id, date, actualAmount }),
+  cancelPlannedPurchase: (id: string) => invoke<void>("cancel_planned_purchase", { id }),
+  restorePlannedPurchase: (id: string) => invoke<void>("restore_planned_purchase", { id }),
+  deletePlannedPurchase: (id: string) => invoke<void>("delete_planned_purchase", { id }),
+
   // ---------- Activity Log ----------
   getActivityLog: (limit = 100) => invoke<ActivityLogEntry[]>("get_activity_log", { limit }),
 
@@ -149,6 +167,12 @@ const realApi = {
   getAppSetting: (key: string) => invoke<string | null>("get_app_setting", { key }),
   setAppSetting: (key: string, value: string) => invoke<void>("set_app_setting", { key, value }),
   closeSplashscreen: () => invoke<void>("close_splashscreen"),
+
+  // ---------- Offline Update ----------
+  getAppPaths: () => invoke<AppPaths>("get_app_paths"),
+  pickUpdateFile: () => invoke<UpdateFileInfo | null>("pick_update_file"),
+  inspectUpdateFile: (path: string) => invoke<UpdateFileInfo>("inspect_update_file", { path }),
+  runUpdateInstaller: (path: string) => invoke<void>("run_update_installer", { path }),
 };
 
 export const api = isTauri() ? realApi : mockApi;

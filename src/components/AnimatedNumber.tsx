@@ -49,5 +49,6 @@ export default function AnimatedNumber({ value, suffix = "", prefix = "", decima
   }, [value]);
 
   const formatted = display.toLocaleString("en-US", { maximumFractionDigits: decimals, minimumFractionDigits: decimals });
-  return <span>{prefix}{formatted}{suffix}</span>;
+  // .num = أرقام جدولية + مقياس الأرقام المستقل (--num-font-scale)
+  return <span className="num">{prefix}{formatted}{suffix}</span>;
 }
