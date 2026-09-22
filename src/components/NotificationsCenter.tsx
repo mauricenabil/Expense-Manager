@@ -50,17 +50,17 @@ export default function NotificationsCenter() {
     <>
       <button ref={triggerRef} onClick={toggle} style={bellBtnStyle} title="Notifications">
         <Bell size={16} />
-        {notifications.length > 0 && <span style={badgeStyle}>{notifications.length}</span>}
+        {notifications.length > 0 && <span className="success-pop" style={badgeStyle}>{notifications.length}</span>}
       </button>
 
       <DropdownPortal anchorRef={triggerRef} menuRef={menuRef} open={open} width={300}>
         <div className="card" style={panelStyle}>
-          <strong style={{ fontSize: 13, display: "block", marginBottom: 8 }}>Notifications</strong>
-          {notifications.length === 0 && <p className="text-muted" style={{ fontSize: 12 }}>You're all caught up.</p>}
+          <strong style={{ fontSize: "calc(13px * var(--app-font-scale, 1))", display: "block", marginBottom: 8 }}>Notifications</strong>
+          {notifications.length === 0 && <p className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))" }}>You're all caught up.</p>}
           {notifications.map((n) => (
             <div key={n.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 0", borderTop: "1px solid var(--border)" }}>
               {n.icon}
-              <span style={{ fontSize: 12 }}>{n.text}</span>
+              <span style={{ fontSize: "calc(12px * var(--app-font-scale, 1))" }}>{n.text}</span>
             </div>
           ))}
         </div>
@@ -76,8 +76,8 @@ const bellBtnStyle: CSSProperties = {
 };
 
 const badgeStyle: CSSProperties = {
-  position: "absolute", top: -4, right: -4, background: "var(--danger)", color: "#fff",
-  borderRadius: "50%", width: 16, height: 16, fontSize: 10, display: "flex",
+  position: "absolute", top: -4, right: -4, background: "var(--danger)", color: "var(--on-danger)",
+  borderRadius: "50%", width: 16, height: 16, fontSize: "calc(10px * var(--app-font-scale, 1))", display: "flex",
   alignItems: "center", justifyContent: "center", fontWeight: 700,
 };
 

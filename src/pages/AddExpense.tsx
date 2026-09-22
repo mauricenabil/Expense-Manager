@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode, type CSSProperties } from 
 import { useNavigate } from "react-router-dom";
 import { Save, RotateCcw, Calendar as CalendarIcon } from "lucide-react";
 import { useDataStore } from "../store/DataStore";
+import TagPicker from "../components/TagPicker";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -16,6 +17,7 @@ export default function AddExpense() {
   const [categoryId, setCategoryId] = useState("");
   const [paymentMethodId, setPaymentMethodId] = useState("");
   const [notes, setNotes] = useState("");
+  const [tagIds, setTagIds] = useState<string[]>([]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [savedToast, setSavedToast] = useState(false);
@@ -42,7 +44,7 @@ export default function AddExpense() {
   };
 
   const resetForm = () => {
-    setName(""); setAmount(""); setNotes(""); setDate(today()); setErrors({});
+    setName(""); setAmount(""); setNotes(""); setDate(today()); setTagIds([]); setErrors({});
     nameRef.current?.focus();
   };
 
@@ -57,6 +59,7 @@ export default function AddExpense() {
         category_id: categoryId || null,
         payment_method_id: paymentMethodId || null,
         description: notes.trim() || null,
+        tag_ids: tagIds,
       });
       setLastAddedId(id);
       setSavedToast(true);
@@ -100,7 +103,7 @@ export default function AddExpense() {
 
         <div className="card">
           <Field label="Expense Name *" error={errors.name}>
-            <input
+            <input dir="auto"
               ref={nameRef}
               style={inputStyle}
               placeholder="e.g. Lunch at restaurant"
@@ -146,8 +149,12 @@ export default function AddExpense() {
             </Field>
           </div>
 
+          <Field label="Tags">
+            <TagPicker value={tagIds} onChange={setTagIds} />
+          </Field>
+
           <Field label="Notes">
-            <textarea
+            <textarea dir="auto"
               style={{ ...inputStyle, minHeight: 70, resize: "vertical" }}
               placeholder="Optional notes..."
               value={notes}
@@ -162,7 +169,7 @@ export default function AddExpense() {
             <button onClick={resetForm} style={secondaryBtnStyle}>Cancel</button>
           </div>
 
-          <div className="text-muted" style={{ fontSize: 12, marginTop: 14 }}>
+          <div className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", marginTop: 14 }}>
             Shortcuts: <strong>Ctrl+S</strong> Save · <strong>Ctrl+Z</strong> Undo last add · <strong>Esc</strong> Cancel
           </div>
 
@@ -174,8 +181,8 @@ export default function AddExpense() {
                 background: "rgba(74,222,128,0.12)", border: "1px solid var(--success)", padding: "10px 14px",
               }}
             >
-              <span style={{ color: "var(--success)", fontSize: 13 }}>✓ Expense added successfully</span>
-              <button onClick={handleUndo} style={{ ...secondaryBtnStyle, padding: "6px 10px", fontSize: 12 }}>
+              <span style={{ color: "var(--success)", fontSize: "calc(13px * var(--app-font-scale, 1))" }}>✓ Expense added successfully</span>
+              <button onClick={handleUndo} style={{ ...secondaryBtnStyle, padding: "6px 10px", fontSize: "calc(12px * var(--app-font-scale, 1))" }}>
                 <RotateCcw size={13} /> Undo
               </button>
             </div>
@@ -184,15 +191,15 @@ export default function AddExpense() {
       </div>
 
       <div>
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>Recent Expenses (Last 7)</h2>
+        <h2 style={{ marginTop: 0, fontSize: "calc(16px * var(--app-font-scale, 1))" }}>Recent Expenses (Last 7)</h2>
         {recent.length === 0 && <p className="text-muted">No expenses yet.</p>}
         {recent.map((r) => (
           <div key={r.id} className="card" style={{ marginBottom: 8, padding: "10px 14px" }}>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontWeight: 600, fontSize: 13 }}>{r.name}</span>
-              <span style={{ fontSize: 13, color: "var(--accent)" }}>{fmt(r.amount)}</span>
+              <span style={{ fontWeight: 600, fontSize: "calc(13px * var(--app-font-scale, 1))" }}>{r.name}</span>
+              <span className="num" style={{ fontSize: "calc(13px * var(--app-font-scale, 1) * var(--num-font-scale, 1))", color: "var(--accent)" }}>{fmt(r.amount)}</span>
             </div>
-            <div className="text-muted" style={{ fontSize: 11, marginTop: 4 }}>
+            <div className="text-muted" style={{ fontSize: "calc(11px * var(--app-font-scale, 1))", marginTop: 4 }}>
               {r.date} {r.category_name ? `· ${r.category_name}` : ""}
             </div>
           </div>
@@ -211,9 +218,9 @@ export default function AddExpense() {
 function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
   return (
     <div style={{ marginBottom: 14 }}>
-      <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6 }}>{label}</label>
+      <label style={{ fontSize: "calc(13px * var(--app-font-scale, 1))", fontWeight: 600, display: "block", marginBottom: 6 }}>{label}</label>
       {children}
-      {error && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{error}</div>}
+      {error && <div style={{ color: "var(--danger)", fontSize: "calc(12px * var(--app-font-scale, 1))", marginTop: 4 }}>{error}</div>}
     </div>
   );
 }
@@ -221,17 +228,17 @@ function Field({ label, error, children }: { label: string; error?: string; chil
 const inputStyle: CSSProperties = {
   width: "100%", padding: "10px 12px", borderRadius: 8,
   border: "1px solid var(--border)", background: "var(--surface-hover)",
-  color: "var(--text)", fontSize: 14, outline: "none", boxSizing: "border-box",
+  color: "var(--text)", fontSize: "calc(14px * var(--app-font-scale, 1))", outline: "none", boxSizing: "border-box",
 };
 
 const primaryBtnStyle: CSSProperties = {
   display: "flex", alignItems: "center", gap: 6, padding: "11px 20px",
-  borderRadius: 8, border: "none", background: "var(--accent)", color: "#fff",
-  fontWeight: 600, fontSize: 14, cursor: "pointer",
+  borderRadius: 8, border: "none", background: "var(--accent)", color: "var(--on-accent)",
+  fontWeight: 600, fontSize: "calc(14px * var(--app-font-scale, 1))", cursor: "pointer",
 };
 
 const secondaryBtnStyle: CSSProperties = {
   display: "flex", alignItems: "center", gap: 6, padding: "11px 20px",
   borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-hover)",
-  color: "var(--text)", fontWeight: 600, fontSize: 14, cursor: "pointer",
+  color: "var(--text)", fontWeight: 600, fontSize: "calc(14px * var(--app-font-scale, 1))", cursor: "pointer",
 };

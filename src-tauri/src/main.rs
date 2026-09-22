@@ -4,10 +4,16 @@
 mod db;
 mod commands;
 mod security;
+mod planned;
+mod updater;
 
 use db::Db;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use tauri::Manager;
+
+/// يحمل علم "الواجهة أقلعت" لتقرأه شبكة أمان الـ splash
+pub struct SplashGuard(pub Arc<AtomicBool>);
 
 fn main() {
     tauri::Builder::default()
@@ -28,9 +34,17 @@ fn main() {
             // شبكة أمان: لو الواجهة لأي سبب غير متوقع لم تطلب إغلاق splash خلال 8 ثوانٍ
             // (مثال: خطأ JS مبكر يمنع React من الإقلاع)، نظهر النافذة الرئيسية تلقائياً
             // بدل ما يفضل المستخدم يشوف splash معلّقة للأبد بدون أي تفاعل ممكن.
+            // علم مشترك يوقف شبكة الأمان بمجرد ما الواجهة تفتح النافذة بنفسها،
+            // بدل ما يفضل الخيط شغّال بلا داعٍ بعد الإقلاع الناجح.
+            let booted = Arc::new(AtomicBool::new(false));
+            app.manage(SplashGuard(booted.clone()));
+
             let app_handle = app.handle().clone();
             std::thread::spawn(move || {
                 std::thread::sleep(std::time::Duration::from_secs(8));
+                if booted.load(Ordering::Relaxed) {
+                    return;
+                }
                 if let Some(main) = app_handle.get_webview_window("main") {
                     if let Ok(false) = main.is_visible() {
                         let _ = main.show();
@@ -110,6 +124,19 @@ fn main() {
             commands::delete_recurring_expense,
             // Activity Log
             commands::get_activity_log,
+            // Planned Purchases
+            planned::get_planned_purchases,
+            planned::create_planned_purchase,
+            planned::update_planned_purchase,
+            planned::convert_planned_to_expense,
+            planned::cancel_planned_purchase,
+            planned::restore_planned_purchase,
+            planned::delete_planned_purchase,
+            // Offline Update
+            updater::get_app_paths,
+            updater::pick_update_file,
+            updater::inspect_update_file,
+            updater::run_update_installer,
             // Backup & Restore
             commands::export_backup_json,
             commands::import_backup_json,

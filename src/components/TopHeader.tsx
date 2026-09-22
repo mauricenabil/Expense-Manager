@@ -14,11 +14,18 @@ export default function TopHeader() {
   const [refreshing, setRefreshing] = useState(false);
   const [justRefreshed, setJustRefreshed] = useState(false);
 
+  const MIN_SPIN_MS = 600; // أقل مدة يظهر فيها الأنيميشن، حتى لو البيانات المحلية اترجعت فوراً
+
   const handleRefresh = async () => {
     if (refreshing) return;
     setRefreshing(true);
+    const start = Date.now();
     try {
       await reloadAll();
+      const elapsed = Date.now() - start;
+      if (elapsed < MIN_SPIN_MS) {
+        await new Promise((resolve) => setTimeout(resolve, MIN_SPIN_MS - elapsed));
+      }
       setJustRefreshed(true);
       setTimeout(() => setJustRefreshed(false), 1100); // ✓ يظهر لحظة قصيرة ثم يعود للحالة العادية
     } finally {
@@ -70,24 +77,29 @@ export default function TopHeader() {
 }
 
 const headerStyle: CSSProperties = {
-  height: 56, display: "flex", alignItems: "center", justifyContent: "space-between",
-  padding: "0 24px", borderBottom: "1px solid var(--border)", background: "var(--surface)",
+  height: 62, display: "flex", alignItems: "center", justifyContent: "space-between",
+  padding: "0 26px", borderBottom: "1px solid var(--border)",
+  background: "color-mix(in srgb, var(--bg) 78%, transparent)",
+  backdropFilter: "blur(14px) saturate(140%)",
+  WebkitBackdropFilter: "blur(14px) saturate(140%)",
   position: "sticky", top: 0, zIndex: "var(--z-header)" as unknown as number,
 };
 
 const iconBtnStyle: CSSProperties = {
-  width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)",
-  background: "var(--surface-hover)", color: "var(--text)", cursor: "pointer",
+  width: 36, height: 36, borderRadius: 11, border: "1px solid var(--border)",
+  background: "var(--surface)", color: "var(--text-muted)", cursor: "pointer",
   display: "flex", alignItems: "center", justifyContent: "center",
+  boxShadow: "var(--shadow-sm)",
 };
 
 const searchTriggerStyle: CSSProperties = {
-  display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", borderRadius: 10,
-  border: "1px solid var(--border)", background: "var(--surface-hover)", color: "var(--text-muted)",
-  fontSize: 13, cursor: "pointer", width: 280,
+  display: "flex", alignItems: "center", gap: 9, padding: "9px 15px", borderRadius: 99,
+  border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-faint)",
+  fontSize: "calc(12.5px * var(--app-font-scale, 1))", cursor: "pointer", width: 320, boxShadow: "var(--shadow-sm)",
 };
 
 const kbdStyle: CSSProperties = {
-  marginLeft: "auto", fontSize: 10, padding: "2px 6px", borderRadius: 4,
-  border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-muted)",
+  marginInlineStart: "auto", fontSize: "calc(9.5px * var(--app-font-scale, 1))", fontWeight: 700, letterSpacing: ".06em",
+  padding: "3px 7px", borderRadius: 6, border: "1px solid var(--border)",
+  background: "var(--surface-hover)", color: "var(--text-faint)",
 };
