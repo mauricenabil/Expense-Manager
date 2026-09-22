@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import type {
   Category, SubCategory, PaymentMethod, Tag, Expense, ExpenseWithDetails,
   Budget, SavingsGoal, RecurringExpense, ActivityLogEntry, DashboardSummary,
+  PlannedPurchase, PlannedPurchaseInput,
 } from "../types";
 
 interface StoreState {
@@ -19,6 +20,7 @@ interface StoreState {
   recurringExpenses: RecurringExpense[];
   activityLog: ActivityLogEntry[];
   dashboardSummary: DashboardSummary | null;
+  plannedPurchases: PlannedPurchase[];
 }
 
 interface StoreActions {
@@ -59,6 +61,13 @@ interface StoreActions {
   confirmRecurringExpense: (recurringId: string, date: string) => Promise<string>;
   deleteRecurringExpense: (id: string) => Promise<void>;
 
+  createPlannedPurchase: (input: PlannedPurchaseInput) => Promise<string>;
+  updatePlannedPurchase: (id: string, input: PlannedPurchaseInput) => Promise<void>;
+  convertPlannedToExpense: (id: string, date: string, actual: number | null) => Promise<string>;
+  cancelPlannedPurchase: (id: string) => Promise<void>;
+  restorePlannedPurchase: (id: string) => Promise<void>;
+  deletePlannedPurchase: (id: string) => Promise<void>;
+
   importBackupJson: (json: string) => Promise<void>;
   importExpensesBulk: (rows: Partial<Expense>[]) => Promise<{ count: number; failed: number }>;
   deleteAllData: () => Promise<void>;
@@ -79,6 +88,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     expenses: [], deletedExpenses: [], categories: [], subCategories: [],
     paymentMethods: [], tags: [], budgets: [], budgetsEnabled: false,
     savingsGoals: [], recurringExpenses: [], activityLog: [], dashboardSummary: null,
+    plannedPurchases: [],
   });
 
   // ------------------------------------------------------------
@@ -89,15 +99,18 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     const [
       expenses, deletedExpenses, categories, subCategories, paymentMethods, tags,
       budgets, budgetsEnabled, savingsGoals, recurringExpenses, activityLog, dashboardSummary,
+      plannedPurchases,
     ] = await Promise.all([
       api.getExpenses(), api.getDeletedExpenses(), api.getCategories(), api.getSubCategories(),
       api.getPaymentMethods(), api.getTags(), api.getBudgets(), api.isBudgetsEnabled(),
       api.getSavingsGoals(), api.getRecurringExpenses(), api.getActivityLog(20),
       api.getDashboardSummary().catch(() => EMPTY_SUMMARY),
+      api.getPlannedPurchases(),
     ]);
     setState({
       loading: false, expenses, deletedExpenses, categories, subCategories, paymentMethods, tags,
       budgets, budgetsEnabled, savingsGoals, recurringExpenses, activityLog, dashboardSummary,
+      plannedPurchases,
     });
   }, []);
 
@@ -151,6 +164,11 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, recurringExpenses }));
   }, []);
 
+  const refreshPlanned = useCallback(async () => {
+    const plannedPurchases = await api.getPlannedPurchases();
+    setState((s) => ({ ...s, plannedPurchases }));
+  }, []);
+
   // ------------------------------------------------------------
   // Actions — كل عملية كتابة تنادي الـ API الحقيقي، وبعدين تحدّث
   // الـ Store المشترك فوراً، فكل مكوّن مستمع يتحدّث لحظياً
@@ -201,6 +219,23 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     },
     deleteRecurringExpense: async (id) => { await api.deleteRecurringExpense(id); await refreshRecurring(); },
 
+    createPlannedPurchase: async (input) => {
+      const id = await api.createPlannedPurchase(input);
+      await refreshPlanned();
+      return id;
+    },
+    updatePlannedPurchase: async (id, input) => { await api.updatePlannedPurchase(id, input); await refreshPlanned(); },
+    convertPlannedToExpense: async (id, date, actual) => {
+      const expenseId = await api.convertPlannedToExpense(id, date, actual);
+      // التحويل يكتب في جدولين، فالاثنان يتحدّثان معاً وإلا ظهر المصروف
+      // في القوائم بينما الخطة ما زالت معروضة كنشطة.
+      await Promise.all([refreshPlanned(), refreshExpenses()]);
+      return expenseId;
+    },
+    cancelPlannedPurchase: async (id) => { await api.cancelPlannedPurchase(id); await refreshPlanned(); },
+    restorePlannedPurchase: async (id) => { await api.restorePlannedPurchase(id); await refreshPlanned(); },
+    deletePlannedPurchase: async (id) => { await api.deletePlannedPurchase(id); await refreshPlanned(); },
+
     importBackupJson: async (json) => { await api.importBackupJson(json); await reloadAll(); },
     importExpensesBulk: async (rows) => {
       let count = 0;
@@ -227,7 +262,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     deleteAllData: async () => { await api.deleteAllData(); await reloadAll(); },
   }), [
     reloadAll, refreshExpenses, refreshCategories, refreshSubCategories, refreshPaymentMethods,
-    refreshTags, refreshBudgets, refreshSavingsGoals, refreshRecurring,
+    refreshTags, refreshBudgets, refreshSavingsGoals, refreshRecurring, refreshPlanned,
   ]);
 
   const value: StoreValue = { ...state, ...actions };

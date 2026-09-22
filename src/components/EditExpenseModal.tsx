@@ -4,6 +4,7 @@ import { X, Trash2, Save } from "lucide-react";
 import type { ExpenseWithDetails } from "../types";
 import { useDataStore } from "../store/DataStore";
 import { useConfirm } from "./ConfirmDialog";
+import TagPicker from "./TagPicker";
 
 /**
  * Modal تعديل المصروف — مبني بـ React Portal ويُعرض في document.body مباشرة.
@@ -30,6 +31,7 @@ export default function EditExpenseModal({
   const [categoryId, setCategoryId] = useState(expense.category_id || "");
   const [paymentMethodId, setPaymentMethodId] = useState(expense.payment_method_id || "");
   const [notes, setNotes] = useState(expense.description || "");
+  const [tagIds, setTagIds] = useState<string[]>(expense.tag_ids ?? []);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -49,6 +51,7 @@ export default function EditExpenseModal({
         category_id: categoryId || null,
         payment_method_id: paymentMethodId || null,
         description: notes.trim() || null,
+        tag_ids: tagIds,
       });
       onSaved();
     } finally {
@@ -67,13 +70,13 @@ export default function EditExpenseModal({
     <div style={overlayStyle} onClick={onClose}>
       <div className="card modal-in" style={modalStyle} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
-          <h2 style={{ margin: 0, fontSize: 18 }}>Edit Expense</h2>
+          <h2 style={{ margin: 0, fontSize: "calc(18px * var(--app-font-scale, 1))" }}>Edit Expense</h2>
           <button onClick={onClose} style={iconBtnStyle}><X size={16} /></button>
         </div>
 
         <div style={{ maxHeight: "60vh", overflowY: "auto", paddingRight: 4 }}>
           <Field label="Name">
-            <input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} />
+            <input dir="auto" style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <Field label="Date">
@@ -97,8 +100,11 @@ export default function EditExpenseModal({
               </select>
             </Field>
           </div>
+          <Field label="Tags">
+            <TagPicker value={tagIds} onChange={setTagIds} />
+          </Field>
           <Field label="Notes">
-            <textarea style={{ ...inputStyle, minHeight: 60 }} value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <textarea dir="auto" style={{ ...inputStyle, minHeight: 60 }} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Field>
         </div>
 
@@ -122,7 +128,7 @@ export default function EditExpenseModal({
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div style={{ marginBottom: 14 }}>
-      <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6 }}>{label}</label>
+      <label style={{ fontSize: "calc(13px * var(--app-font-scale, 1))", fontWeight: 600, display: "block", marginBottom: 6 }}>{label}</label>
       {children}
     </div>
   );
@@ -141,7 +147,7 @@ const modalStyle: CSSProperties = {
 const inputStyle: CSSProperties = {
   width: "100%", padding: "10px 12px", borderRadius: 8,
   border: "1px solid var(--border)", background: "var(--surface-hover)",
-  color: "var(--text)", fontSize: 14, outline: "none", boxSizing: "border-box",
+  color: "var(--text)", fontSize: "calc(14px * var(--app-font-scale, 1))", outline: "none", boxSizing: "border-box",
 };
 
 const iconBtnStyle: CSSProperties = {
@@ -152,18 +158,18 @@ const iconBtnStyle: CSSProperties = {
 
 const primaryBtnStyle: CSSProperties = {
   display: "flex", alignItems: "center", gap: 6, padding: "10px 18px",
-  borderRadius: 8, border: "none", background: "var(--accent)", color: "#fff",
-  fontWeight: 600, fontSize: 14, cursor: "pointer",
+  borderRadius: 8, border: "none", background: "var(--accent)", color: "var(--on-accent)",
+  fontWeight: 600, fontSize: "calc(14px * var(--app-font-scale, 1))", cursor: "pointer",
 };
 
 const secondaryBtnStyle: CSSProperties = {
   padding: "10px 18px", borderRadius: 8, border: "1px solid var(--border)",
   background: "var(--surface-hover)", color: "var(--text)", fontWeight: 600,
-  fontSize: 14, cursor: "pointer",
+  fontSize: "calc(14px * var(--app-font-scale, 1))", cursor: "pointer",
 };
 
 const dangerBtnStyle: CSSProperties = {
   display: "flex", alignItems: "center", gap: 6, padding: "10px 18px",
   borderRadius: 8, border: "1px solid var(--danger)", background: "transparent",
-  color: "var(--danger)", fontWeight: 600, fontSize: 14, cursor: "pointer",
+  color: "var(--danger)", fontWeight: 600, fontSize: "calc(14px * var(--app-font-scale, 1))", cursor: "pointer",
 };

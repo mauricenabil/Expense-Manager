@@ -1,6 +1,18 @@
+import { createPortal } from "react-dom";
 import { useEffect, useState, type CSSProperties } from "react";
 import { X, Zap } from "lucide-react";
 import { useDataStore } from "../store/DataStore";
+
+/**
+ * نافذة الإضافة السريعة.
+ *
+ * تُرسم عبر Portal في document.body وليس في مكانها داخل الشجرة.
+ * السبب: المكوّن يُستدعى من داخل <header> الذي يحمل backdrop-filter، وأي عنصر
+ * فيه backdrop-filter (أو filter أو transform) يصير containing block لكل
+ * أبنائه ذوي position:fixed. فكانت طبقة الخلفية inset:0 تتقيّد بارتفاع الهيدر
+ * (62px) بدل الشاشة كلها، فتظهر النافذة ملتصقة بأعلى الصفحة ومقصوصة.
+ * الخروج إلى document.body يرجّع المرجع إلى الـ viewport فتتوسّط الشاشة فعلاً.
+ */
 
 export default function QuickAddModal({ open, onClose, onAdded }: { open: boolean; onClose: () => void; onAdded: () => void }) {
   const { categories, paymentMethods: methods, addExpense } = useDataStore();
@@ -41,7 +53,7 @@ export default function QuickAddModal({ open, onClose, onAdded }: { open: boolea
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div style={overlayStyle} onClick={onClose}>
       <div className="card modal-in" style={modalStyle} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -49,7 +61,7 @@ export default function QuickAddModal({ open, onClose, onAdded }: { open: boolea
           <button onClick={onClose} style={iconBtnStyle}><X size={16} /></button>
         </div>
 
-        <input
+        <input dir="auto"
           autoFocus style={inputStyle} placeholder="Expense name" value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSave()}
@@ -71,11 +83,12 @@ export default function QuickAddModal({ open, onClose, onAdded }: { open: boolea
         <button onClick={handleSave} disabled={saving} style={primaryBtnStyle}>
           {saving ? "Saving..." : "Add Expense"}
         </button>
-        <p className="text-muted" style={{ fontSize: 11, textAlign: "center", marginTop: 10, marginBottom: 0 }}>
+        <p className="text-muted" style={{ fontSize: "calc(11px * var(--app-font-scale, 1))", textAlign: "center", marginTop: 10, marginBottom: 0 }}>
           Press Enter to save quickly · For full options use the Add Expense page
         </p>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -88,12 +101,12 @@ const modalStyle: CSSProperties = { width: 380, maxWidth: "90vw" };
 
 const inputStyle: CSSProperties = {
   width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)",
-  background: "var(--surface-hover)", color: "var(--text)", fontSize: 14, outline: "none", boxSizing: "border-box",
+  background: "var(--surface-hover)", color: "var(--text)", fontSize: "calc(14px * var(--app-font-scale, 1))", outline: "none", boxSizing: "border-box",
 };
 
 const primaryBtnStyle: CSSProperties = {
   width: "100%", marginTop: 14, padding: "11px", borderRadius: 8, border: "none",
-  background: "var(--accent)", color: "#fff", fontWeight: 600, fontSize: 14, cursor: "pointer",
+  background: "var(--accent)", color: "var(--on-accent)", fontWeight: 600, fontSize: "calc(14px * var(--app-font-scale, 1))", cursor: "pointer",
 };
 
 const iconBtnStyle: CSSProperties = {

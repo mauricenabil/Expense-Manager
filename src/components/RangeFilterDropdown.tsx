@@ -64,10 +64,10 @@ export default function RangeFilterDropdown({
 const triggerStyle: CSSProperties = {
   display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 8,
   border: "1px solid var(--border)", background: "var(--surface-hover)", color: "var(--text)",
-  fontSize: 12, cursor: "pointer", whiteSpace: "nowrap",
+  fontSize: "calc(12px * var(--app-font-scale, 1))", cursor: "pointer", whiteSpace: "nowrap",
 };
 
-const triggerCompactStyle: CSSProperties = { ...triggerStyle, padding: "5px 8px", fontSize: 11 };
+const triggerCompactStyle: CSSProperties = { ...triggerStyle, padding: "5px 8px", fontSize: "calc(11px * var(--app-font-scale, 1))" };
 
 const menuStyle: CSSProperties = {
   background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10,
@@ -76,17 +76,17 @@ const menuStyle: CSSProperties = {
 
 const menuItemStyle: CSSProperties = {
   display: "block", width: "100%", padding: "8px 12px", border: "none", background: "transparent",
-  color: "var(--text-muted)", fontSize: 12, textAlign: "left", cursor: "pointer",
+  color: "var(--text-muted)", fontSize: "calc(12px * var(--app-font-scale, 1))", textAlign: "left", cursor: "pointer",
 };
 
 const menuItemActiveStyle: CSSProperties = { background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 600 };
 
 const dateInputStyle: CSSProperties = {
   padding: "6px 8px", borderRadius: 6, border: "1px solid var(--border)",
-  background: "var(--surface-hover)", color: "var(--text)", fontSize: 12,
+  background: "var(--surface-hover)", color: "var(--text)", fontSize: "calc(12px * var(--app-font-scale, 1))",
 };
 
 const applyBtnStyle: CSSProperties = {
   padding: "6px", borderRadius: 6, border: "none", background: "var(--accent)",
-  color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer",
+  color: "var(--on-accent)", fontSize: "calc(12px * var(--app-font-scale, 1))", fontWeight: 600, cursor: "pointer",
 };

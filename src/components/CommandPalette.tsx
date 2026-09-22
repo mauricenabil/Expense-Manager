@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from
 import { useNavigate } from "react-router-dom";
 import {
   Search, LayoutDashboard, PlusCircle, Receipt, Calendar, BarChart3, Settings,
-  BookOpen, Sun, Download, Lock,
+  BookOpen, Sun, Download, Lock, ShoppingCart,
 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
@@ -37,6 +37,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
     { id: "nav-search", label: "Go to Search", group: "Navigation", icon: <Search size={15} />, action: () => go("/search") },
     { id: "nav-expenses", label: "Go to All Expenses", group: "Navigation", icon: <Receipt size={15} />, action: () => go("/expenses") },
     { id: "nav-calendar", label: "Go to Calendar", group: "Navigation", icon: <Calendar size={15} />, action: () => go("/calendar") },
+    { id: "nav-planned", label: "Go to Planned Purchases", group: "Navigation", icon: <ShoppingCart size={15} />, action: () => go("/planned") },
     { id: "nav-analytics", label: "Go to Analytics", group: "Navigation", icon: <BarChart3 size={15} />, action: () => go("/analytics") },
     { id: "nav-settings", label: "Go to Settings", group: "Navigation", icon: <Settings size={15} />, action: () => go("/settings") },
     { id: "nav-guide", label: "Go to Guide", group: "Navigation", icon: <BookOpen size={15} />, action: () => go("/guide") },
@@ -100,23 +101,23 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       <div className="card modal-in" style={paletteStyle} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
           <Search size={18} color="var(--text-muted)" />
-          <input
+          <input dir="auto"
             autoFocus value={query} onChange={(e) => { setQuery(e.target.value); setActiveIndex(0); }}
             placeholder="Search expenses, categories, or type a command..."
-            style={{ flex: 1, border: "none", outline: "none", background: "transparent", color: "var(--text)", fontSize: 15 }}
+            style={{ flex: 1, border: "none", outline: "none", background: "transparent", color: "var(--text)", fontSize: "calc(15px * var(--app-font-scale, 1))" }}
           />
           <kbd style={kbdStyle}>Esc</kbd>
         </div>
 
         <div style={{ maxHeight: 360, overflowY: "auto", padding: 8 }}>
-          {allResults.length === 0 && <p className="text-muted" style={{ padding: 16, fontSize: 13 }}>No results.</p>}
+          {allResults.length === 0 && <p className="text-muted" style={{ padding: 16, fontSize: "calc(13px * var(--app-font-scale, 1))" }}>No results.</p>}
           {allResults.map((cmd, i) => {
             const showGroupHeader = cmd.group !== lastGroup;
             lastGroup = cmd.group;
             return (
               <div key={cmd.id}>
                 {showGroupHeader && (
-                  <div className="text-muted" style={{ fontSize: 11, fontWeight: 700, padding: "8px 10px 4px", textTransform: "uppercase" }}>{cmd.group}</div>
+                  <div className="text-muted" style={{ fontSize: "calc(11px * var(--app-font-scale, 1))", fontWeight: 700, padding: "8px 10px 4px", textTransform: "uppercase" }}>{cmd.group}</div>
                 )}
                 <button
                   onClick={cmd.action}
@@ -144,12 +145,12 @@ const paletteStyle: CSSProperties = { width: 560, maxWidth: "90vw", padding: 0, 
 const resultStyle: CSSProperties = {
   display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "9px 12px",
   borderRadius: 8, border: "none", background: "transparent", color: "var(--text)",
-  fontSize: 13, cursor: "pointer", textAlign: "left",
+  fontSize: "calc(13px * var(--app-font-scale, 1))", cursor: "pointer", textAlign: "left",
 };
 
 const resultActiveStyle: CSSProperties = { background: "var(--accent-soft)" };
 
 const kbdStyle: CSSProperties = {
-  fontSize: 11, padding: "2px 6px", borderRadius: 4, border: "1px solid var(--border)",
+  fontSize: "calc(11px * var(--app-font-scale, 1))", padding: "2px 6px", borderRadius: 4, border: "1px solid var(--border)",
   background: "var(--surface-hover)", color: "var(--text-muted)",
 };
