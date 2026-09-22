@@ -2,7 +2,7 @@ import { type CSSProperties } from "react";
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, PlusCircle, Search, Receipt, Calendar, BarChart3,
-  Settings, BookOpen, Wallet, ChevronLeft, ChevronRight, PiggyBank, Target,
+  Settings, BookOpen, Wallet, ChevronLeft, ChevronRight, PiggyBank, Target, ShoppingCart,
 } from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
 import { useDataStore } from "../store/DataStore";
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { to: "/search", label: "Search", icon: Search },
   { to: "/expenses", label: "All Expenses", icon: Receipt },
   { to: "/calendar", label: "Calendar", icon: Calendar },
+  { to: "/planned", label: "Planned", icon: ShoppingCart },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/settings", label: "Settings", icon: Settings },
   { to: "/guide", label: "Guide", icon: BookOpen },
@@ -39,10 +40,10 @@ export default function Sidebar() {
 
   return (
     <aside
+      className="sidebar-glow"
       style={{
         width: collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH,
         height: "100vh",
-        background: "var(--surface)",
         borderRight: "1px solid var(--border)",
         display: "flex",
         flexDirection: "column",
@@ -61,7 +62,12 @@ export default function Sidebar() {
           <div style={logoBoxStyle}>
             <Wallet size={20} color="var(--accent)" />
           </div>
-          {!collapsed && <span style={{ fontWeight: 700, fontSize: 15, whiteSpace: "nowrap" }}>Expense Manager</span>}
+          {!collapsed && (
+            <span style={{ display: "flex", flexDirection: "column", lineHeight: 1.1, whiteSpace: "nowrap" }}>
+              <span className="display" style={{ fontSize: "calc(17px * var(--app-font-scale, 1))" }}>Expense</span>
+              <span className="eyebrow" style={{ fontSize: "calc(8.5px * var(--app-font-scale, 1))" }}>Manager 2026</span>
+            </span>
+          )}
         </div>
         {!collapsed && (
           <button onClick={toggleCollapsed} style={collapseBtnStyle} title="Collapse sidebar">
@@ -82,20 +88,24 @@ export default function Sidebar() {
             key={to}
             to={to}
             end={to === "/"}
+            className="nav-link"
             title={collapsed ? label : undefined}
             style={({ isActive }) => ({
+              position: "relative",
               display: "flex",
               alignItems: "center",
-              gap: 10,
-              padding: collapsed ? "10px 0" : "10px 12px",
+              gap: 11,
+              padding: collapsed ? "10px 0" : "10px 13px",
               justifyContent: collapsed ? "center" : "flex-start",
-              borderRadius: 10,
-              fontSize: 14,
-              fontWeight: 500,
+              borderRadius: 11,
+              fontSize: "calc(13.5px * var(--app-font-scale, 1))",
+              fontWeight: isActive ? 600 : 500,
               textDecoration: "none",
-              color: isActive ? "#fff" : "var(--text-muted)",
-              background: isActive ? "var(--accent)" : "transparent",
+              color: isActive ? "var(--accent)" : "var(--text-muted)",
+              background: isActive ? "var(--accent-soft)" : "transparent",
+              boxShadow: isActive ? "inset 0 0 0 1px var(--accent-glow)" : "none",
               whiteSpace: "nowrap",
+              transition: "background .15s ease, color .15s ease",
             })}
           >
             <Icon size={18} style={{ flexShrink: 0 }} />
@@ -109,9 +119,7 @@ export default function Sidebar() {
         <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "4px 14px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
           {pinnedBudgets.length > 0 && (
             <div>
-              <div className="text-muted" style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", margin: "6px 2px" }}>
-                Pinned Budgets
-              </div>
+              <div className="eyebrow" style={{ margin: "8px 2px" }}>Pinned Budgets</div>
               {pinnedBudgets.map((b) => {
                 const spent = spentThisMonth(b.category_id ?? null);
                 const percent = b.amount > 0 ? Math.min(100, (spent / b.amount) * 100) : 0;
@@ -119,15 +127,15 @@ export default function Sidebar() {
                   <div key={b.id} className="card" style={{ padding: "14px 14px", marginBottom: 8 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                       <PiggyBank size={15} color="var(--accent)" />
-                      <span style={{ fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <span style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {b.category_name || "General Budget"}
                       </span>
                     </div>
-                    <div style={{ height: 8, borderRadius: 4, background: "var(--surface-hover)", overflow: "hidden" }}>
-                      <div className="progress-bar-animated" style={{ height: "100%", width: `${percent}%`, background: percent >= 100 ? "var(--danger)" : "var(--accent)" }} />
+                    <div style={{ height: 7, borderRadius: 99, background: "var(--surface-sunken)", overflow: "hidden" }}>
+                      <div className="progress-bar-animated" style={{ height: "100%", borderRadius: 99, width: `${percent}%`, background: percent >= 100 ? "var(--danger)" : "var(--accent)" }} />
                     </div>
-                    <div className="text-muted" style={{ fontSize: 11, marginTop: 6 }}>
-                      {Math.round(spent)} / {b.amount} EGP
+                    <div className="text-muted" style={{ fontSize: "calc(11px * var(--app-font-scale, 1))", marginTop: 6 }}>
+                      <span className="num">{Math.round(spent)} / {b.amount} EGP</span>
                     </div>
                   </div>
                 );
@@ -137,22 +145,20 @@ export default function Sidebar() {
 
           {pinnedGoals.length > 0 && (
             <div>
-              <div className="text-muted" style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", margin: "6px 2px" }}>
-                Pinned Goals
-              </div>
+              <div className="eyebrow" style={{ margin: "8px 2px" }}>Pinned Goals</div>
               {pinnedGoals.map((g) => {
                 const percent = g.target_amount > 0 ? Math.min(100, (g.current_amount / g.target_amount) * 100) : 0;
                 return (
                   <div key={g.id} className="card" style={{ padding: "14px 14px", marginBottom: 8 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                       <Target size={15} color="var(--success)" />
-                      <span style={{ fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.name}</span>
+                      <span style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.name}</span>
                     </div>
-                    <div style={{ height: 8, borderRadius: 4, background: "var(--surface-hover)", overflow: "hidden" }}>
-                      <div className="progress-bar-animated" style={{ height: "100%", width: `${percent}%`, background: "var(--success)" }} />
+                    <div style={{ height: 7, borderRadius: 99, background: "var(--surface-sunken)", overflow: "hidden" }}>
+                      <div className="progress-bar-animated" style={{ height: "100%", borderRadius: 99, width: `${percent}%`, background: "var(--success)" }} />
                     </div>
-                    <div className="text-muted" style={{ fontSize: 11, marginTop: 6 }}>
-                      {Math.round(percent)}% saved
+                    <div className="text-muted" style={{ fontSize: "calc(11px * var(--app-font-scale, 1))", marginTop: 6 }}>
+                      <span className="num">{Math.round(percent)}%</span> saved
                     </div>
                   </div>
                 );
@@ -166,12 +172,13 @@ export default function Sidebar() {
 }
 
 const logoBoxStyle: CSSProperties = {
-  width: 36, height: 36, borderRadius: 10, background: "var(--accent-soft)",
+  width: 38, height: 38, borderRadius: 12, background: "var(--accent-soft)",
+  boxShadow: "inset 0 0 0 1px var(--accent-glow)",
   display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
 };
 
 const collapseBtnStyle: CSSProperties = {
-  width: 26, height: 26, borderRadius: 8, border: "1px solid var(--border)",
+  width: 26, height: 26, borderRadius: 9, border: "1px solid var(--border)",
   background: "var(--surface-hover)", color: "var(--text-muted)", cursor: "pointer",
   display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
 };

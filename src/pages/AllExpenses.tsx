@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Download, Filter, Trash, RotateCcw, XCircle, X, Columns3 } from "lucide-react";
 import { useDropdown } from "../lib/useDropdown";
 import type { ExpenseWithDetails } from "../types";
@@ -7,6 +7,8 @@ import { useDataStore } from "../store/DataStore";
 import DropdownPortal from "../components/DropdownPortal";
 import { useConfirm } from "../components/ConfirmDialog";
 import { deriveExpenseIdFromUuid, isValidExpenseId } from "../lib/expenseId";
+
+const PAGE_SIZE_STORAGE_KEY = "expense-manager-page-size";
 
 type QuickFilter = "all" | "today" | "week" | "month" | "year" | "custom";
 type SortKey = "date" | "amount" | "name";
@@ -29,7 +31,7 @@ function shortExpenseId(expense: ExpenseWithDetails): string {
 }
 
 export default function AllExpenses() {
-  const { expenses, deletedExpenses, categories, paymentMethods: methods, restoreExpense, permanentlyDeleteExpense } = useDataStore();
+  const { expenses, deletedExpenses, categories, paymentMethods: methods, tags, restoreExpense, permanentlyDeleteExpense } = useDataStore();
   const confirmDialog = useConfirm();
   const [showRecycleBin, setShowRecycleBin] = useState(false);
 
@@ -42,7 +44,10 @@ export default function AllExpenses() {
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(15);
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const saved = Number(localStorage.getItem(PAGE_SIZE_STORAGE_KEY));
+    return [10, 25, 50, 100].includes(saved) ? saved : 10;
+  });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<ExpenseWithDetails | null>(null);
 
@@ -57,6 +62,10 @@ export default function AllExpenses() {
     await permanentlyDeleteExpense(id);
   };
 
+
+  useEffect(() => {
+    localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(pageSize));
+  }, [pageSize]);
 
   const inQuickRange = (date: string) => {
     const d = new Date(date);
@@ -150,8 +159,8 @@ export default function AllExpenses() {
         {deletedExpenses.map((e) => (
           <div key={e.id} className="card" style={{ marginBottom: 8, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <div className="bidi-auto" style={{ fontWeight: 600 }}>{e.name}</div>
-              <div className="text-muted" style={{ fontSize: 12 }}>{e.date} · {fmt(e.amount)} {e.category_name ? `· ${e.category_name}` : ""}</div>
+              <div dir="auto" className="bidi-auto" style={{ fontWeight: 600 }}>{e.name}</div>
+              <div className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))" }}><span className="num">{e.date} · {fmt(e.amount)}</span> {e.category_name ? `· ${e.category_name}` : ""}</div>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
               <button onClick={() => handleRestore(e.id)} style={secondaryBtnStyle}><RotateCcw size={14} /> Restore</button>
@@ -189,7 +198,7 @@ export default function AllExpenses() {
         {quickFilter === "custom" && (
           <>
             <input type="date" style={smallInputStyle} value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
-            <span className="text-muted" style={{ fontSize: 13, alignSelf: "center" }}>to</span>
+            <span className="text-muted" style={{ fontSize: "calc(13px * var(--app-font-scale, 1))", alignSelf: "center" }}>to</span>
             <input type="date" style={smallInputStyle} value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
           </>
         )}
@@ -198,7 +207,7 @@ export default function AllExpenses() {
       {/* Search box + Category / Payment Filters + Clear + Columns */}
       <div className="card" style={{ display: "flex", gap: 10, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
         <Filter size={16} color="var(--text-muted)" />
-        <input
+        <input dir="auto"
           placeholder="Quick search..." style={{ ...smallInputStyle, flex: "1 1 160px" }}
           value={searchBox} onChange={(e) => { setSearchBox(e.target.value); setPage(1); }}
         />
@@ -215,10 +224,6 @@ export default function AllExpenses() {
           <button onClick={clearAllFilters} style={secondaryBtnStyle}><X size={14} /> Clear Filters</button>
         )}
 
-        {hasActiveFilters && (
-          <button onClick={clearAllFilters} style={secondaryBtnStyle}><X size={14} /> Clear Filters</button>
-        )}
-
         <div>
           <button ref={columnPicker.triggerRef} onClick={columnPicker.toggle} style={secondaryBtnStyle}>
             <Columns3 size={14} /> Columns
@@ -226,7 +231,7 @@ export default function AllExpenses() {
           <DropdownPortal anchorRef={columnPicker.triggerRef} menuRef={columnPicker.menuRef} open={columnPicker.open} width={180}>
             <div className="card" style={{ padding: 12 }}>
               {ALL_COLUMNS.map((c) => (
-                <label key={c.key} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", fontSize: 13, cursor: "pointer" }}>
+                <label key={c.key} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", fontSize: "calc(13px * var(--app-font-scale, 1))", cursor: "pointer" }}>
                   <input type="checkbox" checked={visibleColumns.has(c.key)} onChange={() => toggleColumn(c.key)} />
                   {c.label}
                 </label>
@@ -235,8 +240,8 @@ export default function AllExpenses() {
           </DropdownPortal>
         </div>
 
-        <span className="text-muted" style={{ marginLeft: "auto", fontSize: 13, whiteSpace: "nowrap" }}>
-          {filtered.length} results · Total: <strong style={{ color: "var(--text)" }}>{fmt(totalAmount)}</strong>
+        <span className="text-muted" style={{ marginLeft: "auto", fontSize: "calc(13px * var(--app-font-scale, 1))", whiteSpace: "nowrap" }}>
+          <span className="num">{filtered.length}</span> results · Total: <strong className="num" style={{ color: "var(--text)" }}>{fmt(totalAmount)}</strong>
         </span>
       </div>
 
@@ -258,8 +263,22 @@ export default function AllExpenses() {
             {pageData.map((e) => (
               <tr key={e.id} onDoubleClick={() => setEditing(e)} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}>
                 <td style={tdStyle}><input type="checkbox" checked={selected.has(e.id)} onChange={() => toggleSelect(e.id)} /></td>
-                {visibleColumns.has("id") && <td style={{ ...tdStyle, fontFamily: "monospace", fontSize: 11 }} className="text-muted">{shortExpenseId(e)}</td>}
-                {visibleColumns.has("name") && <td style={tdStyle} className="bidi-auto">{e.name}</td>}
+                {visibleColumns.has("id") && <td style={{ ...tdStyle, fontFamily: "monospace", fontSize: "calc(11px * var(--app-font-scale, 1))" }} className="text-muted">{shortExpenseId(e)}</td>}
+                {visibleColumns.has("name") && (
+                  <td style={tdStyle}>
+                    <span dir="auto" className="bidi-auto expense-name-bidi">{e.name}</span>
+                    {(e.tag_ids?.length ?? 0) > 0 && (
+                      <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 4, marginInlineStart: 8 }}>
+                        {e.tag_ids!.map((tid) => {
+                          const tag = tags.find((t) => t.id === tid);
+                          return tag ? (
+                            <span key={tid} dir="auto" className="bidi-auto" style={tagChipStyle}>{tag.name}</span>
+                          ) : null;
+                        })}
+                      </span>
+                    )}
+                  </td>
+                )}
                 {visibleColumns.has("date") && <td style={tdStyle} className="text-muted">{e.date}</td>}
                 {visibleColumns.has("category") && (
                   <td style={tdStyle}>
@@ -272,7 +291,7 @@ export default function AllExpenses() {
                   </td>
                 )}
                 {visibleColumns.has("payment") && <td style={tdStyle} className="text-muted">{e.payment_method_name}</td>}
-                {visibleColumns.has("amount") && <td style={{ ...tdStyle, fontWeight: 600 }}>{fmt(e.amount)}</td>}
+                {visibleColumns.has("amount") && <td style={{ ...tdStyle, fontWeight: 600 }}><span className="num">{fmt(e.amount)}</span></td>}
               </tr>
             ))}
             {pageData.length === 0 && (
@@ -282,12 +301,12 @@ export default function AllExpenses() {
         </table>
       </div>
 
-      <div className="text-muted" style={{ fontSize: 12, margin: "10px 0" }}>Double-click a row to edit.</div>
+      <div className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", margin: "10px 0" }}>Double-click a row to edit.</div>
 
       {/* Pagination + Rows per page */}
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 16 }}>
         <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} style={secondaryBtnStyle}>Previous</button>
-        <span style={{ padding: "8px 14px", fontSize: 13 }} className="text-muted">Page {page} of {totalPages}</span>
+        <span style={{ padding: "8px 14px", fontSize: "calc(13px * var(--app-font-scale, 1))" }} className="text-muted">Page {page} of {totalPages}</span>
         <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} style={secondaryBtnStyle}>Next</button>
         <select
           value={pageSize}
@@ -310,10 +329,16 @@ export default function AllExpenses() {
   );
 }
 
-const thStyle: CSSProperties = { textAlign: "left", padding: "12px 14px", fontSize: 12, color: "var(--text-muted)", cursor: "pointer", userSelect: "none" };
-const tdStyle: CSSProperties = { padding: "12px 14px", fontSize: 13 };
-const smallInputStyle: CSSProperties = { padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-hover)", color: "var(--text)", fontSize: 13 };
-const chipStyle: CSSProperties = { padding: "7px 14px", borderRadius: 20, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-muted)", fontSize: 13, cursor: "pointer" };
-const chipActiveStyle: CSSProperties = { background: "var(--accent)", color: "#fff", borderColor: "var(--accent)" };
-const primaryBtnStyle: CSSProperties = { display: "flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 8, border: "none", background: "var(--accent)", color: "#fff", fontWeight: 600, fontSize: 14, cursor: "pointer" };
-const secondaryBtnStyle: CSSProperties = { display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-hover)", color: "var(--text)", fontSize: 13, cursor: "pointer" };
+const tagChipStyle: CSSProperties = {
+  display: "inline-block", padding: "1px 8px", borderRadius: 99,
+  background: "var(--accent-soft)", color: "var(--accent)",
+  fontSize: "calc(10.5px * var(--app-font-scale, 1))", fontWeight: 700, lineHeight: 1.7, whiteSpace: "nowrap",
+};
+
+const thStyle: CSSProperties = { textAlign: "left", padding: "12px 14px", fontSize: "calc(12px * var(--app-font-scale, 1))", color: "var(--text-muted)", cursor: "pointer", userSelect: "none" };
+const tdStyle: CSSProperties = { padding: "12px 14px", fontSize: "calc(13px * var(--app-font-scale, 1))" };
+const smallInputStyle: CSSProperties = { padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-hover)", color: "var(--text)", fontSize: "calc(13px * var(--app-font-scale, 1))" };
+const chipStyle: CSSProperties = { padding: "7px 14px", borderRadius: 20, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-muted)", fontSize: "calc(13px * var(--app-font-scale, 1))", cursor: "pointer" };
+const chipActiveStyle: CSSProperties = { background: "var(--accent)", color: "var(--on-accent)", borderColor: "var(--accent)" };
+const primaryBtnStyle: CSSProperties = { display: "flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 8, border: "none", background: "var(--accent)", color: "var(--on-accent)", fontWeight: 600, fontSize: "calc(14px * var(--app-font-scale, 1))", cursor: "pointer" };
+const secondaryBtnStyle: CSSProperties = { display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-hover)", color: "var(--text)", fontSize: "calc(13px * var(--app-font-scale, 1))", cursor: "pointer" };
