@@ -57,7 +57,7 @@ export default function ExpenseNameAutocomplete({
   menuZIndex,
 }: ExpenseNameAutocompleteProps) {
   const { expenses } = useDataStore();
-  const { open, setOpen, toggle, triggerRef, menuRef } = useDropdown<HTMLInputElement>();
+  const { open, setOpen, triggerRef, menuRef } = useDropdown<HTMLInputElement>();
   const [activeIndex, setActiveIndex] = useState(-1);
 
   // إعادة التركيز عند تغيّر focusSignal (مثال: بعد حفظ مصروف وتصفير النموذج)
@@ -88,12 +88,13 @@ export default function ExpenseNameAutocomplete({
 
   const suggestions = useMemo(() => {
     const q = value.trim().toLowerCase();
-    let pool = uniqueNames;
-    if (q) {
-      pool = uniqueNames.filter((n) => n.name.toLowerCase().includes(q));
-      // لو الاقتراح الوحيد مطابق تماماً لما هو مكتوب بالفعل، لا فائدة من عرضه
-      if (pool.length === 1 && pool[0].name.toLowerCase() === q) return [];
-    }
+    // مفيش استعلام = مفيش اقتراحات. القائمة ما تظهرش إلا لما المستخدم يكتب
+    // أو يعدّل فعلاً — مش بمجرد فتح الفورم أو التركيز على خانة فاضية، ومش
+    // لما يمسح النص كله ويرجّعه فاضياً.
+    if (!q) return [];
+    const pool = uniqueNames.filter((n) => n.name.toLowerCase().includes(q));
+    // لو الاقتراح الوحيد مطابق تماماً لما هو مكتوب بالفعل، لا فائدة من عرضه
+    if (pool.length === 1 && pool[0].name.toLowerCase() === q) return [];
     return [...pool]
       .sort((a, b) => {
         const aStarts = q ? a.name.toLowerCase().startsWith(q) : true;
@@ -130,10 +131,10 @@ export default function ExpenseNameAutocomplete({
         onChange={(e) => {
           onChange(e.target.value);
           setActiveIndex(-1);
+          // تُفتح القائمة فقط بفعل الكتابة/التعديل نفسه (وليس بمجرد التركيز
+          // على الخانة عند فتح الفورم) — ولو النص بقى فاضياً بالكامل، مفيش
+          // اقتراحات أصلاً (suggestions هتبقى []) فالقائمة هتختفي تلقائياً.
           setOpen(true);
-        }}
-        onFocus={() => {
-          if (!open && suggestions.length > 0) toggle();
         }}
         onKeyDown={(e) => {
           if (open && suggestions.length > 0) {

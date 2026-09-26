@@ -61,6 +61,17 @@ export default function CalendarPage() {
   const byDay = useMemo(() => {
     const map = new Map<string, ExpenseWithDetails[]>();
     expenses.forEach((e) => { if (!map.has(e.date)) map.set(e.date, []); map.get(e.date)!.push(e); });
+    // ترتيب مصروفات كل يوم من الأحدث إلى الأقدم (بحسب وقت الإضافة الفعلي)
+    // بغضّ النظر عن الترتيب الأصلي القادم من الـ Store، لضمان ظهور أحدث
+    // مصروف في أعلى اللوحة الجانبية دائماً.
+    for (const list of map.values()) {
+      list.sort((a, b) => {
+        const at = a.created_at ?? "";
+        const bt = b.created_at ?? "";
+        if (at !== bt) return at < bt ? 1 : -1;
+        return 0;
+      });
+    }
     return map;
   }, [expenses]);
 
