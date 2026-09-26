@@ -1,24 +1,26 @@
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
-  Wallet, CalendarDays, TrendingUp, Activity, Trophy, Calculator, Tag, RotateCcw,
-  AlertTriangle, Flame, CheckCircle2, Clock, ArrowUp, ArrowDown,
+  Wallet, CalendarDays, TrendingUp, Activity, Trophy, Calculator, Tag,
+  AlertTriangle, Flame, CheckCircle2, ArrowUp, ArrowDown,
 } from "lucide-react";
 import { useDataStore } from "../store/DataStore";
-import { ProDailyAreaChart } from "../components/ChartsPro";
+import DailySpendingChart from "../components/DailySpendingChart";
+import { useTheme } from "../context/ThemeContext";
 import CircularProgress from "../components/CircularProgress";
 import AnimatedNumber from "../components/AnimatedNumber";
 import RangeFilterDropdown from "../components/RangeFilterDropdown";
+import ActivityFeed from "../components/ActivityFeed";
 import { resolveDateRange, isWithinRange, buildDailyTimeline, type DateFilterValue } from "../lib/dateRanges";
 import { useWeekStart } from "../context/WeekStartContext";
+import { useFontScale } from "../context/FontScaleContext";
 
 export default function Dashboard() {
   const { weekStart } = useWeekStart();
-  const { dashboardSummary: summary, expenses, budgets, budgetsEnabled, activityLog: activity, deleteExpense, restoreExpense } = useDataStore();
+  const { theme } = useTheme();
+  const { dashboardSummary: summary, expenses, budgets, budgetsEnabled, activityLog: activity } = useDataStore();
 
   const [top5Filter, setTop5Filter] = useState<DateFilterValue>({ range: "month" });
   const [trendFilter, setTrendFilter] = useState<DateFilterValue>({ range: "month" });
-
-  const [undoToast, setUndoToast] = useState<{ id: string; name: string } | null>(null);
 
   const fmt = (n: number) => `${n.toLocaleString("en-US", { maximumFractionDigits: 2 })} EGP`;
 
@@ -31,7 +33,7 @@ export default function Dashboard() {
       if (isWithinRange(e.date, resolveDateRange(trendFilter, weekStart).from, resolveDateRange(trendFilter, weekStart).to))
         amountByDate.set(e.date, (amountByDate.get(e.date) || 0) + e.amount);
     });
-    return timeline.map(({ dateISO, label }) => ({ label, value: amountByDate.get(dateISO) || 0 }));
+    return timeline.map(({ dateISO, label }) => ({ iso: dateISO, label, value: amountByDate.get(dateISO) || 0 }));
   }, [expenses, trendFilter, weekStart]);
 
   const top5Range = resolveDateRange(top5Filter, weekStart);
@@ -117,51 +119,39 @@ export default function Dashboard() {
     return list.slice(0, 5);
   }, [expenses, budgetUsage]);
 
-  const handleUndoableDelete = async (id: string, name: string) => {
-    await deleteExpense(id);
-    setUndoToast({ id, name });
-    setTimeout(() => setUndoToast((t) => (t?.id === id ? null : t)), 6000);
-  };
-
-  const handleUndo = async () => {
-    if (!undoToast) return;
-    await restoreExpense(undoToast.id);
-    setUndoToast(null);
-  };
-
   if (!summary) return null;
 
   const kpis: { label: string; value: string; numericValue?: number; suffix?: string; icon: ReactNode; color: string; insight?: ReactNode }[] = [
     {
       label: "Today", value: fmt(summary.total_today), numericValue: summary.total_today, suffix: " EGP",
-      icon: <CalendarDays size={18} />, color: "#4DA3FF",
+      icon: <CalendarDays size={18} />, color: "var(--c1)",
       insight: kpiComparisons.todayChange !== null ? <TrendBadge value={kpiComparisons.todayChange} suffix="vs Yesterday" /> : undefined,
     },
-    { label: "This Month", value: fmt(summary.total_this_month), numericValue: summary.total_this_month, suffix: " EGP", icon: <Wallet size={18} />, color: "#FF8A65" },
-    { label: "This Year", value: fmt(summary.total_this_year), numericValue: summary.total_this_year, suffix: " EGP", icon: <TrendingUp size={18} />, color: "#66BB6A" },
+    { label: "This Month", value: fmt(summary.total_this_month), numericValue: summary.total_this_month, suffix: " EGP", icon: <Wallet size={18} />, color: "var(--c2)" },
+    { label: "This Year", value: fmt(summary.total_this_year), numericValue: summary.total_this_year, suffix: " EGP", icon: <TrendingUp size={18} />, color: "var(--c7)" },
     {
       label: "Daily Average", value: fmt(summary.daily_average), numericValue: summary.daily_average, suffix: " EGP",
-      icon: <Activity size={18} />, color: "#FFC107",
-      insight: <span className="text-muted" style={{ fontSize: 11 }}>30-day avg: {Math.round(kpiComparisons.avg30)} EGP</span>,
+      icon: <Activity size={18} />, color: "var(--c3)",
+      insight: <span className="text-muted" style={{ fontSize: "calc(11px * var(--app-font-scale, 1))" }}>30-day avg: <span className="num">{Math.round(kpiComparisons.avg30)} EGP</span></span>,
     },
     {
       label: "Expense Count", value: String(summary.expense_count_this_month), numericValue: summary.expense_count_this_month,
-      icon: <Calculator size={18} />, color: "#AB47BC",
+      icon: <Calculator size={18} />, color: "var(--c5)",
       insight: <TrendBadge value={kpiComparisons.countDelta} suffix="vs Last Month" isCount />,
     },
-    { label: "Biggest Expense", value: fmt(summary.biggest_expense), numericValue: summary.biggest_expense, suffix: " EGP", icon: <Trophy size={18} />, color: "#EF5350" },
+    { label: "Biggest Expense", value: fmt(summary.biggest_expense), numericValue: summary.biggest_expense, suffix: " EGP", icon: <Trophy size={18} />, color: "var(--c6)" },
     {
       label: "Average Expense",
       value: fmt(summary.expense_count_this_month > 0 ? summary.total_this_month / summary.expense_count_this_month : 0),
       numericValue: summary.expense_count_this_month > 0 ? summary.total_this_month / summary.expense_count_this_month : 0,
-      suffix: " EGP", icon: <Calculator size={18} />, color: "#26C6DA",
+      suffix: " EGP", icon: <Calculator size={18} />, color: "var(--c4)",
     },
-    { label: "Top Category", value: summary.top_category || "—", icon: <Tag size={18} />, color: "#8AA0BD" },
+    { label: "Top Category", value: summary.top_category || "—", icon: <Tag size={18} />, color: "var(--c8)" },
   ];
 
   return (
     <div className="fade-in">
-      <h1 style={{ marginTop: 0 }}>Dashboard</h1>
+      <h1 style={{ marginTop: 0, marginBottom: 26 }}>Dashboard</h1>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 20 }}>
         {kpis.map((k, i) => <KpiCard key={k.label} {...k} delay={i * 40} />)}
@@ -173,7 +163,12 @@ export default function Dashboard() {
             <h3 style={{ marginTop: 0 }}>Daily Spending Trend</h3>
             <RangeFilterDropdown value={trendFilter} onChange={setTrendFilter} compact />
           </div>
-          <ProDailyAreaChart data={dailyTrend} />
+          <DailySpendingChart
+            dates={dailyTrend.map((d) => d.iso)}
+            amounts={dailyTrend.map((d) => d.value)}
+            isDarkMode={theme === "dark"}
+            height={280}
+          />
         </div>
 
         <div className="card fade-in" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
@@ -188,7 +183,7 @@ export default function Dashboard() {
           {insights.length === 0 && <EmptyState text="Not enough data yet to generate insights." />}
           {insights.map((ins, i) => (
             <div key={i} className="fade-in-item" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderTop: i > 0 ? "1px solid var(--border)" : "none" }}>
-              {ins.icon}<span style={{ fontSize: 13 }}>{ins.text}</span>
+              {ins.icon}<span style={{ fontSize: "calc(13px * var(--app-font-scale, 1))" }}>{ins.text}</span>
             </div>
           ))}
         </div>
@@ -202,13 +197,10 @@ export default function Dashboard() {
           {top5.map((e) => (
             <div key={e.id} className="fade-in-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderTop: "1px solid var(--border)" }}>
               <div>
-                <div className="bidi-auto" style={{ fontSize: 13, fontWeight: 600 }}>{e.name}</div>
-                <div className="text-muted" style={{ fontSize: 11 }}>{e.date}</div>
+                <div dir="auto" className="bidi-auto" style={{ fontSize: "calc(13px * var(--app-font-scale, 1) * var(--ar-font-scale, 1))", fontWeight: 600 }}>{e.name}</div>
+                <div className="text-muted" style={{ fontSize: "calc(11px * var(--app-font-scale, 1))" }}>{e.date}</div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ fontWeight: 700, fontSize: 13 }}>{fmt(e.amount)}</div>
-                <button onClick={() => handleUndoableDelete(e.id, e.name)} style={smallIconBtn} title="Delete"><RotateCcw size={12} /></button>
-              </div>
+              <div className="num" style={{ fontWeight: 700, fontSize: "calc(13px * var(--app-font-scale, 1) * var(--num-font-scale, 1))" }}>{fmt(e.amount)}</div>
             </div>
           ))}
         </div>
@@ -216,15 +208,8 @@ export default function Dashboard() {
 
       <div style={{ display: "grid", gridTemplateColumns: budgetsEnabled ? "1fr 1fr" : "1fr", gap: 20 }}>
         <div className="card fade-in">
-          <h3 style={{ marginTop: 0 }}>Recent Activity</h3>
-          {activity.length === 0 && <EmptyState text="No recent activity." />}
-          {activity.map((a) => (
-            <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderTop: "1px solid var(--border)" }}>
-              <Clock size={13} color="var(--text-muted)" />
-              <span style={{ fontSize: 12, flex: 1 }}>{formatAction(a.action_type)}</span>
-              <span className="text-muted" style={{ fontSize: 11 }}>{a.created_at.slice(5, 16).replace("T", " ")}</span>
-            </div>
-          ))}
+          <h3 style={{ marginTop: 0, marginBottom: 4 }}>Recent Activity</h3>
+          <ActivityFeed entries={activity} />
         </div>
 
         {budgetsEnabled && budgetUsage.length > 0 && (
@@ -232,9 +217,9 @@ export default function Dashboard() {
             <h3 style={{ marginTop: 0 }}>Budget Overview</h3>
             {budgetUsage.map((b) => (
               <div key={b.id} style={{ marginBottom: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "calc(13px * var(--app-font-scale, 1))", marginBottom: 6 }}>
                   <span>{b.category_name || "General Budget"}</span>
-                  <span className="text-muted">{Math.round(b.spent)} / {b.amount} EGP</span>
+                  <span className="text-muted num">{Math.round(b.spent)} / {b.amount} EGP</span>
                 </div>
                 <div style={{ height: 8, borderRadius: 4, background: "var(--surface-hover)", overflow: "hidden" }}>
                   <div className="progress-bar-animated" style={{ height: "100%", width: `${b.percent}%`, background: b.percent >= 100 ? "var(--danger)" : b.percent >= 80 ? "var(--warning)" : "var(--accent)" }} />
@@ -244,15 +229,6 @@ export default function Dashboard() {
           </div>
         )}
       </div>
-
-      {undoToast && (
-        <div style={toastStyle} className="toast-in">
-          <span style={{ fontSize: 13 }}>Deleted "{undoToast.name}"</span>
-          <button onClick={handleUndo} style={{ ...smallIconBtn, width: "auto", padding: "5px 10px", display: "flex", alignItems: "center", gap: 5 }}>
-            <RotateCcw size={12} /> Undo
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -262,9 +238,9 @@ function TrendBadge({ value, suffix, isCount = false }: { value: number; suffix:
   const flat = value === 0;
   const display = isCount ? `${up ? "+" : ""}${value}` : `${up ? "+" : ""}${Math.round(value)}%`;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, marginTop: 4 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "calc(11px * var(--app-font-scale, 1))", marginTop: 4 }}>
       {!flat && (up ? <ArrowUp size={11} color="var(--danger)" /> : <ArrowDown size={11} color="var(--success)" />)}
-      <span style={{ color: flat ? "var(--text-muted)" : up ? "var(--danger)" : "var(--success)", fontWeight: 700 }}>{display}</span>
+      <span className="num" style={{ color: flat ? "var(--text-muted)" : up ? "var(--danger)" : "var(--success)", fontWeight: 700 }}>{display}</span>
       <span className="text-muted">{suffix}</span>
     </div>
   );
@@ -272,56 +248,60 @@ function TrendBadge({ value, suffix, isCount = false }: { value: number; suffix:
 
 function KpiCard({ label, value, numericValue, suffix, icon, color, insight, delay }: { label: string; value: string; numericValue?: number; suffix?: string; icon: ReactNode; color: string; insight?: ReactNode; delay: number }) {
   const [hover, setHover] = useState(false);
+  const { dashboardBold } = useFontScale();
   return (
     <div
       className="card kpi-card-in"
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
+        position: "relative",
+        overflow: "hidden",
+        padding: "18px 18px 16px",
         transform: hover ? "translateY(-3px)" : "none",
-        boxShadow: hover ? `0 8px 20px ${color}33` : "var(--shadow)",
-        transition: "transform 0.18s ease, box-shadow 0.18s ease",
-        borderTop: `3px solid ${color}`,
+        boxShadow: hover ? "var(--shadow-lg)" : "var(--shadow)",
+        transition: "transform 0.2s var(--ease-decelerate), box-shadow 0.2s var(--ease-decelerate)",
         animationDelay: `${delay}ms`,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div className="text-muted" style={{ fontSize: 12 }}>{label}</div>
-        <div style={{ width: 30, height: 30, borderRadius: 8, background: `${color}22`, display: "flex", alignItems: "center", justifyContent: "center", color }}>
+      {/* شريط لوني رفيع على حافة البطاقة + هالة خفيفة بنفس اللون عند المرور */}
+      <span style={{ position: "absolute", insetInlineStart: 0, top: 0, bottom: 0, width: 3, background: color }} />
+      <span
+        style={{
+          position: "absolute", top: -46, insetInlineEnd: -46, width: 130, height: 130, borderRadius: "50%",
+          background: color, opacity: hover ? 0.14 : 0.07, filter: "blur(26px)",
+          transition: "opacity 0.25s ease", pointerEvents: "none",
+        }}
+      />
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", position: "relative" }}>
+        <div className="eyebrow" style={{ fontSize: "calc(9.5px * var(--app-font-scale, 1))" }}>{label}</div>
+        <div style={{
+          width: 30, height: 30, borderRadius: 9, background: "var(--surface-hover)",
+          display: "flex", alignItems: "center", justifyContent: "center", color, flexShrink: 0,
+        }}>
           {icon}
         </div>
       </div>
-      <div style={{ fontWeight: 700, fontSize: 17, marginTop: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+
+      <div
+        dir="auto"
+        className={`kpi-value${numericValue === undefined ? " kpi-value-text" : ""}`}
+        style={{
+          marginTop: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", position: "relative",
+          fontSize: `calc(${numericValue === undefined ? 34 : 38}px * var(--dashboard-font-scale, 1))`,
+          fontWeight: dashboardBold ? 700 : 400,
+          textAlign: "start",
+        }}
+      >
         {numericValue !== undefined ? <AnimatedNumber value={numericValue} suffix={suffix} /> : value}
       </div>
-      {insight && <div style={{ marginTop: 2 }}>{insight}</div>}
+      {insight && <div style={{ marginTop: 4, position: "relative" }}>{insight}</div>}
     </div>
   );
 }
 
 function EmptyState({ text }: { text: string }) {
-  return <p className="text-muted" style={{ fontSize: 13, padding: "10px 0" }}>{text}</p>;
+  return <p className="text-muted empty-pop" style={{ fontSize: "calc(13px * var(--app-font-scale, 1))", padding: "10px 0" }}>{text}</p>;
 }
 
-function formatAction(action: string): string {
-  const map: Record<string, string> = {
-    expense_added: "Added an expense", expense_updated: "Updated an expense",
-    expense_deleted: "Deleted an expense", expense_restored: "Restored an expense",
-    category_added: "Added a category", budget_changed: "Updated a budget",
-    backup_created: "Created a backup", backup_restored: "Restored a backup",
-    password_changed: "Changed password",
-  };
-  return map[action] || action.replace(/_/g, " ");
-}
-
-const smallIconBtn: CSSProperties = {
-  width: 22, height: 22, borderRadius: 6, border: "1px solid var(--border)",
-  background: "var(--surface-hover)", color: "var(--text-muted)", cursor: "pointer",
-  display: "flex", alignItems: "center", justifyContent: "center", transition: "background 0.15s",
-};
-
-const toastStyle: CSSProperties = {
-  position: "fixed", bottom: 24, right: 24, background: "var(--surface)",
-  border: "1px solid var(--border)", borderRadius: 12, padding: "12px 16px",
-  display: "flex", alignItems: "center", gap: 14, boxShadow: "var(--shadow)", zIndex: "var(--z-toast)" as unknown as number,
-};

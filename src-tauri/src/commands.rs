@@ -80,6 +80,10 @@ pub struct Expense {
     pub sub_category_id: Option<String>,
     pub payment_method_id: Option<String>,
     pub description: Option<String>,
+    /// معرّفات الوسوم المرتبطة. serde(default) حتى لا يفشل أي استدعاء قديم
+    /// لا يرسل المفتاح أصلاً (مثل استيراد CSV) بدل أن يفشل الصف كله.
+    #[serde(default)]
+    pub tag_ids: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -95,6 +99,7 @@ pub struct ExpenseWithDetails {
     pub payment_method_id: Option<String>,
     pub payment_method_name: Option<String>,
     pub description: Option<String>,
+    pub tag_ids: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -111,7 +116,8 @@ pub struct DashboardSummary {
 // ===================================================================
 // Helper: تسجيل أي عملية في activity_log (Audit Trail)
 // ===================================================================
-fn log_activity(conn: &rusqlite::Connection, action: &str, table: &str, record_id: &str) {
+/// pub(crate) لأن وحدة planned تسجّل في نفس السجل.
+pub(crate) fn log_activity(conn: &rusqlite::Connection, action: &str, table: &str, record_id: &str) {
     let _ = conn.execute(
         "INSERT INTO activity_log (id, action_type, table_name, record_id) VALUES (?1, ?2, ?3, ?4)",
         params![Uuid::new_v4().to_string(), action, table, record_id],
@@ -339,8 +345,42 @@ pub fn create_tag(db: State<Db>, name: String) -> Result<String, String> {
 #[tauri::command]
 pub fn delete_tag(db: State<Db>, id: String) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM expense_tags WHERE tag_id = ?1", params![id])
+        .map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM tags WHERE id = ?1", params![id])
         .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// يحوّل ناتج group_concat (نص مفصول بفواصل أو NULL) إلى قائمة معرّفات.
+fn split_ids(raw: Option<String>) -> Vec<String> {
+    raw.map(|s| {
+        s.split(',')
+            .map(|p| p.trim())
+            .filter(|p| !p.is_empty())
+            .map(|p| p.to_string())
+            .collect()
+    })
+    .unwrap_or_default()
+}
+
+/// يُعيد كتابة روابط الوسوم لمصروف واحد: حذف القديم ثم إدراج الجديد.
+/// OR IGNORE يتجاهل أي tag_id غير موجود بدل أن يُفشل حفظ المصروف كله.
+fn sync_expense_tags(
+    conn: &rusqlite::Connection,
+    expense_id: &str,
+    tag_ids: &[String],
+) -> Result<(), String> {
+    conn.execute("DELETE FROM expense_tags WHERE expense_id = ?1", params![expense_id])
+        .map_err(|e| e.to_string())?;
+    for tag_id in tag_ids {
+        conn.execute(
+            "INSERT OR IGNORE INTO expense_tags (expense_id, tag_id)
+             SELECT ?1, ?2 WHERE EXISTS (SELECT 1 FROM tags WHERE id = ?2)",
+            params![expense_id, tag_id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 
@@ -354,7 +394,8 @@ pub fn get_expenses(db: State<Db>, limit: i64, offset: i64) -> Result<Vec<Expens
     let mut stmt = conn
         .prepare(
             "SELECT e.id, e.name, e.date, e.amount, e.category_id, c.name, c.color,
-                    e.sub_category_id, e.payment_method_id, p.name, e.description
+                    e.sub_category_id, e.payment_method_id, p.name, e.description,
+                    (SELECT group_concat(tag_id) FROM expense_tags WHERE expense_id = e.id)
              FROM expenses e
              LEFT JOIN categories c ON c.id = e.category_id
              LEFT JOIN payment_methods p ON p.id = e.payment_method_id
@@ -378,6 +419,7 @@ pub fn get_expenses(db: State<Db>, limit: i64, offset: i64) -> Result<Vec<Expens
                 payment_method_id: row.get(8)?,
                 payment_method_name: row.get(9)?,
                 description: row.get(10)?,
+                tag_ids: split_ids(row.get(11)?),
             })
         })
         .map_err(|e| e.to_string())?;
@@ -392,7 +434,8 @@ pub fn get_deleted_expenses(db: State<Db>) -> Result<Vec<ExpenseWithDetails>, St
     let mut stmt = conn
         .prepare(
             "SELECT e.id, e.name, e.date, e.amount, e.category_id, c.name, c.color,
-                    e.sub_category_id, e.payment_method_id, p.name, e.description
+                    e.sub_category_id, e.payment_method_id, p.name, e.description,
+                    (SELECT group_concat(tag_id) FROM expense_tags WHERE expense_id = e.id)
              FROM expenses e
              LEFT JOIN categories c ON c.id = e.category_id
              LEFT JOIN payment_methods p ON p.id = e.payment_method_id
@@ -415,6 +458,7 @@ pub fn get_deleted_expenses(db: State<Db>) -> Result<Vec<ExpenseWithDetails>, St
                 payment_method_id: row.get(8)?,
                 payment_method_name: row.get(9)?,
                 description: row.get(10)?,
+                tag_ids: split_ids(row.get(11)?),
             })
         })
         .map_err(|e| e.to_string())?;
@@ -425,6 +469,8 @@ pub fn get_deleted_expenses(db: State<Db>) -> Result<Vec<ExpenseWithDetails>, St
 #[tauri::command]
 pub fn permanently_delete_expense(db: State<Db>, id: String) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM expense_tags WHERE expense_id = ?1", params![id])
+        .map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM expenses WHERE id = ?1", params![id])
         .map_err(|e| e.to_string())?;
     log_activity(&conn, "expense_permanently_deleted", "expenses", &id);
@@ -447,6 +493,7 @@ pub fn add_expense(db: State<Db>, expense: Expense) -> Result<String, String> {
     )
     .map_err(|e| e.to_string())?;
 
+    sync_expense_tags(&conn, &id, &expense.tag_ids)?;
     log_activity(&conn, "expense_added", "expenses", &id);
     Ok(id)
 }
@@ -463,6 +510,7 @@ pub fn update_expense(db: State<Db>, expense: Expense) -> Result<(), String> {
         ],
     )
     .map_err(|e| e.to_string())?;
+    sync_expense_tags(&conn, &expense.id, &expense.tag_ids)?;
     log_activity(&conn, "expense_updated", "expenses", &expense.id);
     Ok(())
 }
@@ -973,69 +1021,214 @@ pub fn export_backup_json(db: State<Db>) -> Result<String, String> {
         "payment_methods": dump_table("payment_methods", "*")?,
         "tags": dump_table("tags", "*")?,
         "expenses": dump_table("expenses", "id,name,date,amount,category_id,sub_category_id,payment_method_id,description,recurring_id,created_at,updated_at,deleted_at")?,
+        "expense_tags": dump_table("expense_tags", "*")?,
         "budgets": dump_table("budgets", "*")?,
         "savings_goals": dump_table("savings_goals", "*")?,
         "recurring_expenses": dump_table("recurring_expenses", "*")?,
+        "planned_purchases": dump_table("planned_purchases", "*")?,
     });
 
     log_activity(&conn, "backup_created", "app", "-");
     serde_json::to_string_pretty(&backup).map_err(|e| e.to_string())
 }
 
-/// استرجاع نسخة احتياطية: يحذف البيانات الحالية (نهائياً) ويستورد من JSON
+/// استرجاع نسخة احتياطية.
+///
+/// كل العملية داخل transaction واحدة: الحذف والاستيراد يثبتان معاً أو لا يحدث
+/// أي منهما. لو فشل أي INSERT في المنتصف (صف تالف، مبلغ غير رقمي، مفتاح أجنبي
+/// مكسور) يُلغى الـ transaction تلقائياً عند الـ drop وتعود قاعدة البيانات
+/// كما كانت تماماً قبل الاسترجاع.
+///
+/// وتُستورد كل الجداول الموجودة في ملف النسخة، لا ثلاثة منها فقط. ترتيب
+/// الإدراج يحترم المفاتيح الأجنبية: الفئات ثم الفئات الفرعية ثم طرق الدفع
+/// ثم الوسوم ثم المتكررة ثم المصروفات ثم الربط ثم الباقي.
 #[tauri::command]
 pub fn import_backup_json(db: State<Db>, json_data: String) -> Result<(), String> {
     let data: serde_json::Value = serde_json::from_str(&json_data).map_err(|e| e.to_string())?;
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let mut conn = db.0.lock().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
 
-    conn.execute_batch(
-        "DELETE FROM expenses; DELETE FROM budgets; DELETE FROM savings_goals;
-         DELETE FROM recurring_expenses; DELETE FROM sub_categories;
-         DELETE FROM categories; DELETE FROM payment_methods; DELETE FROM tags;",
+    // وقت افتراضي لأي created_at ناقص في الملف. تمرير NULL صراحةً يكسر قيد
+    // NOT NULL لأن DEFAULT في SQLite لا يعمل إلا لو العمود محذوف من الـ INSERT.
+    let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    let ts = |v: &serde_json::Value| -> String { v.as_str().unwrap_or(&now).to_string() };
+
+    // expense_tags أولاً: هو الطرف التابع لكل من expenses و tags،
+    // وبدون حذفه يفشل حذفهما تحت PRAGMA foreign_keys = ON.
+    tx.execute_batch(
+        "DELETE FROM expense_tags; DELETE FROM planned_purchases; DELETE FROM expenses;
+         DELETE FROM budgets; DELETE FROM savings_goals; DELETE FROM recurring_expenses;
+         DELETE FROM sub_categories; DELETE FROM categories;
+         DELETE FROM payment_methods; DELETE FROM tags;",
     )
     .map_err(|e| e.to_string())?;
 
-    if let Some(categories) = data["categories"].as_array() {
-        for c in categories {
-            conn.execute(
-                "INSERT INTO categories (id, name, icon, color, sort_order, created_at, deleted_at) VALUES (?1,?2,?3,?4,?5,?6,?7)",
-                params![c["id"].as_str(), c["name"].as_str(), c["icon"].as_str(), c["color"].as_str(),
-                        c["sort_order"].as_i64().unwrap_or(0), c["created_at"].as_str(), c["deleted_at"].as_str()],
+    /* ---------- Categories ---------- */
+    if let Some(rows) = data["categories"].as_array() {
+        for c in rows {
+            tx.execute(
+                "INSERT INTO categories (id, name, icon, color, sort_order, created_at, deleted_at)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7)",
+                params![
+                    c["id"].as_str(), c["name"].as_str(), c["icon"].as_str(), c["color"].as_str(),
+                    c["sort_order"].as_i64().unwrap_or(0), ts(&c["created_at"]), c["deleted_at"].as_str()
+                ],
             ).map_err(|e| e.to_string())?;
         }
     }
-    if let Some(pms) = data["payment_methods"].as_array() {
-        for p in pms {
-            conn.execute(
-                "INSERT INTO payment_methods (id, name, icon, sort_order, deleted_at) VALUES (?1,?2,?3,?4,?5)",
-                params![p["id"].as_str(), p["name"].as_str(), p["icon"].as_str(),
-                        p["sort_order"].as_i64().unwrap_or(0), p["deleted_at"].as_str()],
+
+    /* ---------- Sub categories ---------- */
+    if let Some(rows) = data["sub_categories"].as_array() {
+        for s in rows {
+            tx.execute(
+                "INSERT INTO sub_categories (id, category_id, name, created_at, deleted_at)
+                 VALUES (?1,?2,?3,?4,?5)",
+                params![
+                    s["id"].as_str(), s["category_id"].as_str(), s["name"].as_str(),
+                    ts(&s["created_at"]), s["deleted_at"].as_str()
+                ],
             ).map_err(|e| e.to_string())?;
         }
     }
-    if let Some(expenses) = data["expenses"].as_array() {
-        for e in expenses {
+
+    /* ---------- Payment methods ---------- */
+    if let Some(rows) = data["payment_methods"].as_array() {
+        for p in rows {
+            tx.execute(
+                "INSERT INTO payment_methods (id, name, icon, sort_order, created_at, deleted_at)
+                 VALUES (?1,?2,?3,?4,?5,?6)",
+                params![
+                    p["id"].as_str(), p["name"].as_str(), p["icon"].as_str(),
+                    p["sort_order"].as_i64().unwrap_or(0), ts(&p["created_at"]), p["deleted_at"].as_str()
+                ],
+            ).map_err(|e| e.to_string())?;
+        }
+    }
+
+    /* ---------- Tags ---------- */
+    if let Some(rows) = data["tags"].as_array() {
+        for t in rows {
+            tx.execute(
+                "INSERT INTO tags (id, name) VALUES (?1,?2)",
+                params![t["id"].as_str(), t["name"].as_str()],
+            ).map_err(|e| e.to_string())?;
+        }
+    }
+
+    /* ---------- Recurring expenses (قبل المصروفات: recurring_id يشير إليها) ---------- */
+    if let Some(rows) = data["recurring_expenses"].as_array() {
+        for r in rows {
+            let start = r["start_date"].as_str().unwrap_or("").to_string();
+            tx.execute(
+                "INSERT INTO recurring_expenses
+                    (id, name, amount, category_id, sub_category_id, payment_method_id,
+                     frequency, start_date, end_date, next_due_date, is_active, created_at, deleted_at)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)",
+                params![
+                    r["id"].as_str(), r["name"].as_str(), r["amount"].as_f64().unwrap_or(0.0),
+                    r["category_id"].as_str(), r["sub_category_id"].as_str(), r["payment_method_id"].as_str(),
+                    r["frequency"].as_str().unwrap_or("monthly"), start,
+                    r["end_date"].as_str(),
+                    r["next_due_date"].as_str().unwrap_or(r["start_date"].as_str().unwrap_or("")),
+                    r["is_active"].as_i64().unwrap_or(1),
+                    ts(&r["created_at"]), r["deleted_at"].as_str()
+                ],
+            ).map_err(|e| e.to_string())?;
+        }
+    }
+
+    /* ---------- Expenses ---------- */
+    if let Some(rows) = data["expenses"].as_array() {
+        for e in rows {
             let date = e["date"].as_str().unwrap_or("").to_string();
-            // لو الـ id غير موجود أو فارغ (ملف JSON خارجي بدون IDs) نولّد واحد بصيغة EXP-YYMMDD-XXXXXX
-            // أما الـ IDs الصحيحة الموجودة بالفعل (نسخ احتياطية حقيقية) فتبقى كما هي بدون أي تغيير
+            // لو الـ id غير موجود أو فارغ (ملف JSON خارجي بدون IDs) نولّد واحداً بصيغة EXP-YYMMDD-XXXXXX.
+            // أما الـ IDs الصحيحة الموجودة بالفعل (نسخ احتياطية حقيقية) فتبقى كما هي بدون أي تغيير.
             let id: String = match e["id"].as_str() {
                 Some(s) if !s.trim().is_empty() => s.to_string(),
                 _ => security::generate_expense_id(&date),
             };
-            conn.execute(
+            tx.execute(
                 "INSERT INTO expenses (id, name, date, amount, category_id, sub_category_id, payment_method_id, description, recurring_id, created_at, updated_at, deleted_at)
                  VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
                 params![
                     id, e["name"].as_str(), date, e["amount"].as_f64(),
                     e["category_id"].as_str(), e["sub_category_id"].as_str(), e["payment_method_id"].as_str(),
                     e["description"].as_str(), e["recurring_id"].as_str(),
-                    e["created_at"].as_str(), e["updated_at"].as_str(), e["deleted_at"].as_str()
+                    ts(&e["created_at"]), ts(&e["updated_at"]), e["deleted_at"].as_str()
+                ],
+            ).map_err(|err| err.to_string())?;
+        }
+    }
+
+    /* ---------- Expense ↔ Tag links ---------- */
+    if let Some(rows) = data["expense_tags"].as_array() {
+        for l in rows {
+            // INSERT OR IGNORE: نسخة فيها ربط لمصروف تم توليد id جديد له
+            // (ملف خارجي بلا IDs) لن توقف الاسترجاع كله بسبب مفتاح أجنبي مكسور.
+            tx.execute(
+                "INSERT OR IGNORE INTO expense_tags (expense_id, tag_id)
+                 SELECT ?1, ?2 WHERE EXISTS (SELECT 1 FROM expenses WHERE id = ?1)
+                              AND EXISTS (SELECT 1 FROM tags WHERE id = ?2)",
+                params![l["expense_id"].as_str(), l["tag_id"].as_str()],
+            ).map_err(|e| e.to_string())?;
+        }
+    }
+
+    /* ---------- Budgets ---------- */
+    if let Some(rows) = data["budgets"].as_array() {
+        for b in rows {
+            tx.execute(
+                "INSERT INTO budgets (id, category_id, amount, period, start_date, created_at, deleted_at, pinned)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+                params![
+                    b["id"].as_str(), b["category_id"].as_str(), b["amount"].as_f64().unwrap_or(0.0),
+                    b["period"].as_str().unwrap_or("monthly"),
+                    b["start_date"].as_str().unwrap_or(&now[..10]),
+                    ts(&b["created_at"]), b["deleted_at"].as_str(),
+                    b["pinned"].as_i64().unwrap_or(0)
                 ],
             ).map_err(|e| e.to_string())?;
         }
     }
 
-    log_activity(&conn, "backup_restored", "app", "-");
+    /* ---------- Savings goals ---------- */
+    if let Some(rows) = data["savings_goals"].as_array() {
+        for g in rows {
+            tx.execute(
+                "INSERT INTO savings_goals (id, name, target_amount, current_amount, target_date, created_at, deleted_at, pinned)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+                params![
+                    g["id"].as_str(), g["name"].as_str(),
+                    g["target_amount"].as_f64().unwrap_or(0.0),
+                    g["current_amount"].as_f64().unwrap_or(0.0),
+                    g["target_date"].as_str(), ts(&g["created_at"]), g["deleted_at"].as_str(),
+                    g["pinned"].as_i64().unwrap_or(0)
+                ],
+            ).map_err(|e| e.to_string())?;
+        }
+    }
+
+    /* ---------- Planned purchases (بعد المصروفات: converted_expense_id يشير إليها) ---------- */
+    if let Some(rows) = data["planned_purchases"].as_array() {
+        for p in rows {
+            tx.execute(
+                "INSERT INTO planned_purchases
+                    (id, name, estimated_amount, category_id, payment_method_id, target_date,
+                     priority, notes, status, converted_expense_id, purchased_at, created_at, deleted_at)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)",
+                params![
+                    p["id"].as_str(), p["name"].as_str(), p["estimated_amount"].as_f64(),
+                    p["category_id"].as_str(), p["payment_method_id"].as_str(), p["target_date"].as_str(),
+                    p["priority"].as_i64().unwrap_or(2), p["notes"].as_str(),
+                    p["status"].as_str().unwrap_or("planned"), p["converted_expense_id"].as_str(),
+                    p["purchased_at"].as_str(), ts(&p["created_at"]), p["deleted_at"].as_str()
+                ],
+            ).map_err(|e| e.to_string())?;
+        }
+    }
+
+    log_activity(&tx, "backup_restored", "app", "-");
+    tx.commit().map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -1046,6 +1239,10 @@ pub fn import_backup_json(db: State<Db>, json_data: String) -> Result<(), String
 #[tauri::command]
 pub async fn close_splashscreen(app: tauri::AppHandle) -> Result<(), String> {
     use tauri::Manager;
+    // نوقف مؤقّت الثماني ثوانٍ: الواجهة وصلت لأول رسم كامل فلا حاجة له
+    if let Some(guard) = app.try_state::<crate::SplashGuard>() {
+        guard.0.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
     if let Some(splash) = app.get_webview_window("splashscreen") {
         let _ = splash.close();
     }
@@ -1060,7 +1257,8 @@ pub async fn close_splashscreen(app: tauri::AppHandle) -> Result<(), String> {
 pub fn delete_all_data(db: State<Db>) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute_batch(
-        "DELETE FROM expenses; DELETE FROM budgets; DELETE FROM savings_goals;
+        "DELETE FROM expense_tags; DELETE FROM planned_purchases; DELETE FROM expenses;
+         DELETE FROM budgets; DELETE FROM savings_goals;
          DELETE FROM recurring_expenses; DELETE FROM sub_categories;
          DELETE FROM categories; DELETE FROM payment_methods; DELETE FROM tags;
          DELETE FROM activity_log;",

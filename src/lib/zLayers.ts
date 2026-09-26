@@ -8,7 +8,9 @@
  * الترتيب من الأقل للأعلى يعكس الأولوية البصرية المنطقية:
  * المحتوى العادي < الكروت اللي بتتفاعل (hover) < الـ Sidebar الثابت < الهيدر
  * < أي عنصر عائم (Dropdown/Popover/Tooltip) < الإشعارات (Toast) < النوافذ
- * المنبثقة (Modal) < أعلى مستوى ممكن (Command Palette، لازم يفضل فوق أي حاجة).
+ * المنبثقة (Modal) < عنصر عائم مفتوح من داخل Modal (مثال: اقتراحات إكمال
+ * تلقائي داخل نافذة تعديل/إضافة سريعة) < أعلى مستوى ممكن (Command Palette،
+ * لازم يفضل فوق أي حاجة).
  */
 export const Z = {
   base: 1,
@@ -19,6 +21,7 @@ export const Z = {
   dropdown: 300,
   toast: 500,
   modal: 1000,
+  modalPopover: 1050,
   commandPalette: 1100,
 } as const;
 

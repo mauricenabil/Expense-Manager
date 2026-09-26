@@ -41,14 +41,18 @@ export default function Layout() {
   }
 
   return (
-    <div style={{ minHeight: "100vh" }}>
+    // الشل نفسه بيملأ الشاشة ومش بيتمرّر: كل التمرير بيحصل جوّه <main> وحده.
+    // قبل كده كان الـ body هو اللي بيتمرّر بينما <main> واخد overflowY: auto
+    // بدون ارتفاع محدّد، فكان بيبقى "حاوية تمرير" ما بتتمرّرش أبداً — وده
+    // اللي كان بيكسر أي position: sticky جوّه الصفحات (زي nav الإعدادات).
+    <div style={{ height: "100vh", overflow: "hidden" }}>
       <Sidebar />
 
       {/* marginLeft يساوي عرض الـ Sidebar الثابت دائماً => لا توجد مساحة فاضية ولا تداخل */}
       <div
         style={{
           marginLeft: sidebarWidth,
-          minHeight: "100vh",
+          height: "100vh",
           display: "flex",
           flexDirection: "column",
           transition: "margin-left 0.22s ease",
@@ -56,16 +60,18 @@ export default function Layout() {
       >
         <TopHeader />
 
-        <main style={{ flex: 1, padding: 28, overflowY: "auto" }}>
+        <main style={{ flex: 1, minHeight: 0, padding: "30px 32px 48px", overflowY: "auto", maxWidth: 1600, width: "100%" }}>
           {isPreviewMode && (
             <div
               className="card"
               style={{
                 marginBottom: 16,
                 padding: "10px 16px",
-                background: "var(--warning)22",
+                background: "var(--warning-soft)",
                 border: "1px solid var(--warning)",
-                fontSize: 13,
+                borderRadius: "var(--radius-sm)",
+                fontSize: "calc(12.5px * var(--app-font-scale, 1))",
+                lineHeight: 1.6,
                 color: "var(--warning)",
               }}
             >

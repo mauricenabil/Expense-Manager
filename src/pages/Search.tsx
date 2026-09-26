@@ -55,7 +55,7 @@ export default function Search() {
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
           <SearchIcon size={18} color="var(--text-muted)" />
-          <input
+          <input dir="auto"
             autoFocus
             placeholder="Search by name, notes, category, or payment method..."
             style={inputStyle}
@@ -97,7 +97,7 @@ export default function Search() {
           ) : (
             <>
               <input type="date" style={{ ...inputStyle, flex: "0 0 180px" }} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} placeholder="From" />
-              <span className="text-muted" style={{ fontSize: 13 }}>to</span>
+              <span className="text-muted" style={{ fontSize: "calc(13px * var(--app-font-scale, 1))" }}>to</span>
               <input type="date" style={{ ...inputStyle, flex: "0 0 180px" }} value={dateTo} onChange={(e) => setDateTo(e.target.value)} placeholder="To" />
             </>
           )}
@@ -111,11 +111,11 @@ export default function Search() {
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-        <span className="text-muted" style={{ fontSize: 14 }}>
-          <strong style={{ color: "var(--text)" }}>{results.length}</strong> results
+        <span className="text-muted" style={{ fontSize: "calc(14px * var(--app-font-scale, 1))" }}>
+          <strong className="num" style={{ color: "var(--text)" }}>{results.length}</strong> results
         </span>
-        <span className="text-muted" style={{ fontSize: 14 }}>
-          Total: <strong style={{ color: "var(--accent)" }}>{fmt(totalAmount)}</strong>
+        <span className="text-muted" style={{ fontSize: "calc(14px * var(--app-font-scale, 1))" }}>
+          Total: <strong className="num" style={{ color: "var(--accent)" }}>{fmt(totalAmount)}</strong>
         </span>
       </div>
 
@@ -127,17 +127,17 @@ export default function Search() {
           style={{ marginBottom: 8, padding: "12px 16px", cursor: "pointer", display: "flex", justifyContent: "space-between" }}
         >
           <div>
-            <div className="bidi-auto" style={{ fontWeight: 600 }}>{e.name}</div>
-            <div className="text-muted" style={{ fontSize: 12, marginTop: 3 }}>
+            <div dir="auto" className="bidi-auto" style={{ fontWeight: 600 }}>{e.name}</div>
+            <div className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", marginTop: 3 }}>
               {e.date} {e.category_name ? `· ${e.category_name}` : ""} {e.payment_method_name ? `· ${e.payment_method_name}` : ""}
             </div>
           </div>
-          <div style={{ fontWeight: 700, color: "var(--accent)" }}>{fmt(e.amount)}</div>
+          <div className="num" style={{ fontWeight: 700, color: "var(--accent)" }}>{fmt(e.amount)}</div>
         </div>
       ))}
       {results.length === 0 && <p className="text-muted">No results found. Try adjusting your filters.</p>}
 
-      <div className="text-muted" style={{ fontSize: 12, marginTop: 10 }}>Double-click a result to edit.</div>
+      <div className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", marginTop: 10 }}>Double-click a result to edit.</div>
 
       {editing && (
         <EditExpenseModal
@@ -153,13 +153,13 @@ export default function Search() {
 
 const inputStyle: CSSProperties = {
   flex: 1, padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)",
-  background: "var(--surface-hover)", color: "var(--text)", fontSize: 14, outline: "none",
+  background: "var(--surface-hover)", color: "var(--text)", fontSize: "calc(14px * var(--app-font-scale, 1))", outline: "none",
 };
 
 const clearBtnStyle: CSSProperties = {
   display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8,
   border: "1px solid var(--border)", background: "transparent", color: "var(--text-muted)",
-  fontSize: 12, cursor: "pointer",
+  fontSize: "calc(12px * var(--app-font-scale, 1))", cursor: "pointer",
 };
 
 const dateModeSwitchStyle: CSSProperties = {
@@ -168,7 +168,7 @@ const dateModeSwitchStyle: CSSProperties = {
 
 const dateModeBtnStyle: CSSProperties = {
   padding: "6px 12px", borderRadius: 6, border: "none", background: "transparent",
-  color: "var(--text-muted)", fontSize: 12, cursor: "pointer", fontWeight: 600,
+  color: "var(--text-muted)", fontSize: "calc(12px * var(--app-font-scale, 1))", cursor: "pointer", fontWeight: 600,
 };
 
-const dateModeBtnActiveStyle: CSSProperties = { background: "var(--accent)", color: "#fff" };
+const dateModeBtnActiveStyle: CSSProperties = { background: "var(--accent)", color: "var(--on-accent)" };

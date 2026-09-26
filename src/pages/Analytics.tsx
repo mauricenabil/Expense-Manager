@@ -1,7 +1,9 @@
 import { useMemo, useState, useRef, type RefObject, type CSSProperties, type ReactNode } from "react";
 import { useDataStore } from "../store/DataStore";
 import type { ExpenseWithDetails } from "../types";
-import { ProBarChart, ProDonutChart, ProDailyAreaChart, ProCategoryTrend, ProWeekdayChart, ProHeatmap } from "../components/ChartsPro";
+import { ProBarChart, ProDonutChart, ProCategoryTrend, ProWeekdayChart, ProHeatmap, chartColor } from "../components/ChartsPro";
+import DailySpendingChart from "../components/DailySpendingChart";
+import { useTheme } from "../context/ThemeContext";
 import RangeFilterDropdown from "../components/RangeFilterDropdown";
 import DropdownPortal from "../components/DropdownPortal";
 import { useDropdown } from "../lib/useDropdown";
@@ -78,10 +80,10 @@ function ComparisonBadge({ change, sentiment = "spending", suffix = "vs prev. pe
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
       <Icon size={12} color={color} />
-      <span style={{ fontSize: 11, color, fontWeight: 600 }}>
+      <span style={{ fontSize: "calc(11px * var(--app-font-scale, 1))", color, fontWeight: 600 }}>
         {flat ? "No change" : `${up ? "+" : "-"}${absChange}%`}
       </span>
-      <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{suffix}</span>
+      <span style={{ fontSize: "calc(11px * var(--app-font-scale, 1))", color: "var(--text-muted)" }}>{suffix}</span>
     </div>
   );
 }
@@ -101,9 +103,20 @@ function SummaryCard({ icon, label, value, change, sentiment = "spending", suffi
     <div className="card kpi-card-in" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
         <div style={{ color: "var(--accent)", display: "flex" }}>{icon}</div>
-        <span style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 600 }}>{label}</span>
+        <span style={{ fontSize: "calc(12px * var(--app-font-scale, 1))", color: "var(--text-muted)", fontWeight: 600 }}>{label}</span>
       </div>
-      <div style={{ fontWeight: 800, fontSize: 18, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</div>
+      <div
+        dir="auto"
+        className={/\d/.test(value) ? "num" : "bidi-auto"}
+        style={{
+          fontWeight: 800,
+          // القيمة هنا إما مبلغ وإما اسم فئة (نص مستخدم): كل واحد بياخد مقياسه
+          fontSize: /\d/.test(value)
+            ? "calc(18px * var(--app-font-scale, 1) * var(--num-font-scale, 1))"
+            : "calc(18px * var(--app-font-scale, 1) * var(--ar-font-scale, 1))",
+          color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}
+      >{value}</div>
       <ComparisonBadge change={change} sentiment={sentiment} suffix={suffix} />
     </div>
   );
@@ -122,7 +135,7 @@ function ChartCard({ title, children, filter, onFilter, filterOptions }: {
   return (
     <div className="card fade-in">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h3 style={{ margin: 0, fontSize: 15 }}>{title}</h3>
+        <h3 style={{ margin: 0, fontSize: "calc(15px * var(--app-font-scale, 1))" }}>{title}</h3>
         {filter && onFilter && <RangeFilterDropdown value={filter} onChange={onFilter} compact options={filterOptions} />}
       </div>
       {children}
@@ -135,6 +148,7 @@ function ChartCard({ title, children, filter, onFilter, filterOptions }: {
    ========================================================= */
 export default function Analytics() {
   const { weekStart } = useWeekStart();
+  const { theme } = useTheme();
   const { expenses, budgets, budgetsEnabled } = useDataStore();
   const pageRef = useRef<HTMLDivElement>(null);
 
@@ -263,7 +277,7 @@ export default function Analytics() {
     if (timeline.length === 0) return [];
     const amountByDate = new Map<string, number>();
     dailyExp.forEach((e) => amountByDate.set(e.date, (amountByDate.get(e.date) || 0) + e.amount));
-    return timeline.map(({ dateISO, label }) => ({ label, value: amountByDate.get(dateISO) || 0 }));
+    return timeline.map(({ dateISO, label }) => ({ iso: dateISO, label, value: amountByDate.get(dateISO) || 0 }));
   }, [dailyExp, dailyFilter, weekStart]);
 
   // --- Category charts ---
@@ -356,7 +370,7 @@ export default function Analytics() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <h1 style={{ margin: 0 }}>Analytics</h1>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <span className="text-muted" style={{ fontSize: 12 }}>Global filter:</span>
+          <span className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))" }}>Global filter:</span>
           <RangeFilterDropdown value={globalFilter} onChange={applyGlobal} />
           <ExportMenu expenses={globalExp} pageRef={pageRef} />
         </div>
@@ -402,7 +416,14 @@ export default function Analytics() {
       {/* ── 3. Daily Spending Trend ─────────────────────────── */}
       <div style={{ marginTop: 20 }}>
         <ChartCard title="Daily Spending Trend" filter={dailyFilter} onFilter={setDailyFilter}>
-          {dailyTrend.length > 0 ? <ProDailyAreaChart data={dailyTrend} /> : <EmptyChart />}
+          {dailyTrend.length > 0 ? (
+            <DailySpendingChart
+              dates={dailyTrend.map((d) => d.iso)}
+              amounts={dailyTrend.map((d) => d.value)}
+              isDarkMode={theme === "dark"}
+              height={300}
+            />
+          ) : <EmptyChart />}
         </ChartCard>
       </div>
 
@@ -431,17 +452,17 @@ export default function Analytics() {
             <div key={b.name} style={{ marginBottom: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontWeight: 600, fontSize: 13 }}>{b.name}</span>
-                  <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 20, background: `${b.color}22`, color: b.color, fontWeight: 700 }}>
+                  <span style={{ fontWeight: 600, fontSize: "calc(13px * var(--app-font-scale, 1))" }}>{b.name}</span>
+                  <span style={{ fontSize: "calc(11px * var(--app-font-scale, 1))", padding: "3px 10px", borderRadius: 99, background: `color-mix(in srgb, ${b.color} 14%, transparent)`, color: b.color, fontWeight: 700 }}>
                     {b.status}
                   </span>
                 </div>
-                <div className="text-muted" style={{ fontSize: 12 }}>
-                  {fmt(b.spent)} / {fmt(b.budget)} ({Math.round(b.percent)}%)
+                <div className="text-muted" style={{ fontSize: "calc(12px * var(--app-font-scale, 1))" }}>
+                  <span className="num">{fmt(b.spent)} / {fmt(b.budget)} ({Math.round(b.percent)}%)</span>
                 </div>
               </div>
-              <div style={{ height: 10, borderRadius: 5, background: "var(--surface-hover)", overflow: "hidden" }}>
-                <div className="progress-bar-animated" style={{ height: "100%", width: `${b.percent}%`, background: b.color, borderRadius: 5 }} />
+              <div style={{ height: 8, borderRadius: 99, background: "var(--surface-sunken)", overflow: "hidden" }}>
+                <div className="progress-bar-animated" style={{ height: "100%", width: `${b.percent}%`, background: b.color, borderRadius: 99 }} />
               </div>
             </div>
           ))}
@@ -460,11 +481,11 @@ export default function Analytics() {
                 const color = flat ? "var(--text-muted)" : up ? "var(--danger)" : "var(--success)";
                 return (
                   <div key={c.cat} className="fade-in-item" style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderTop: "1px solid var(--border)", alignItems: "center" }}>
-                    <span style={{ fontSize: 13 }}>{c.cat}</span>
-                    <span style={{ fontSize: 13 }} className="text-muted">{Math.round(c.prev)} → {Math.round(c.curr)} EGP</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color, display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontSize: "calc(13px * var(--app-font-scale, 1))" }}>{c.cat}</span>
+                    <span style={{ fontSize: "calc(13px * var(--app-font-scale, 1))" }} className="text-muted"><span className="num">{Math.round(c.prev)} → {Math.round(c.curr)} EGP</span></span>
+                    <span style={{ fontSize: "calc(13px * var(--app-font-scale, 1))", fontWeight: 700, color, display: "flex", alignItems: "center", gap: 4 }}>
                       {flat ? <Minus size={13} /> : up ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
-                      {flat ? "—" : `${up ? "+" : ""}${Math.round(c.change)}%`}
+                      <span className="num">{flat ? "—" : `${up ? "+" : ""}${Math.round(c.change)}%`}</span>
                     </span>
                   </div>
                 );
@@ -510,7 +531,7 @@ export default function Analytics() {
 function EmptyChart({ label = "No data for this period." }: { label?: string }) {
   return (
     <div style={{ padding: "32px 0", textAlign: "center" } as CSSProperties}>
-      <p className="text-muted" style={{ fontSize: 13 }}>{label}</p>
+      <p className="text-muted" style={{ fontSize: "calc(13px * var(--app-font-scale, 1))" }}>{label}</p>
     </div>
   );
 }
@@ -583,7 +604,7 @@ function ExportMenu({ expenses, pageRef }: { expenses: ExpenseWithDetails[]; pag
             { label: "Export PDF", action: exportPDF },
             { label: "Print / Save PNG", action: exportPNG },
           ].map(({ label, action }) => (
-            <button key={label} onClick={action} style={{ display: "block", width: "100%", padding: "9px 14px", border: "none", background: "transparent", color: "var(--text)", fontSize: 13, textAlign: "left", cursor: "pointer" }}>
+            <button key={label} onClick={action} style={{ display: "block", width: "100%", padding: "9px 14px", border: "none", background: "transparent", color: "var(--text)", fontSize: "calc(13px * var(--app-font-scale, 1))", textAlign: "left", cursor: "pointer" }}>
               {label}
             </button>
           ))}
@@ -596,7 +617,7 @@ function ExportMenu({ expenses, pageRef }: { expenses: ExpenseWithDetails[]; pag
 const exportBtnStyle: CSSProperties = {
   display: "flex", alignItems: "center", gap: 6, padding: "7px 12px",
   borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-hover)",
-  color: "var(--text)", fontSize: 12, cursor: "pointer", fontWeight: 600,
+  color: "var(--text)", fontSize: "calc(12px * var(--app-font-scale, 1))", cursor: "pointer", fontWeight: 600,
 };
 
 /* =========================================================
@@ -648,8 +669,8 @@ function StatisticsTable({ expenses, prevExpenses }: { expenses: ExpenseWithDeta
 
   if (rows.length === 0) return null;
 
-  const thStyle: CSSProperties = { padding: "10px 14px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" as const, cursor: "pointer", userSelect: "none" as const, textAlign: "left" as const };
-  const tdStyle: CSSProperties = { padding: "12px 14px", fontSize: 13 };
+  const thStyle: CSSProperties = { padding: "10px 14px", fontSize: "calc(11px * var(--app-font-scale, 1))", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" as const, cursor: "pointer", userSelect: "none" as const, textAlign: "left" as const };
+  const tdStyle: CSSProperties = { padding: "12px 14px", fontSize: "calc(13px * var(--app-font-scale, 1))" };
 
   return (
     <div className="card fade-in" style={{ marginTop: 20, padding: 0, overflow: "hidden" }}>
@@ -669,7 +690,7 @@ function StatisticsTable({ expenses, prevExpenses }: { expenses: ExpenseWithDeta
             </tr>
           </thead>
           <tbody>
-            {sorted.map((r) => {
+            {sorted.map((r, i) => {
               const trendUp = r.trend !== null && r.trend > 0;
               const trendFlat = r.trend === null || Math.abs(r.trend) < 0.5;
               const trendColor = trendFlat ? "var(--text-muted)" : trendUp ? "var(--danger)" : "var(--success)";
@@ -677,23 +698,23 @@ function StatisticsTable({ expenses, prevExpenses }: { expenses: ExpenseWithDeta
                 <tr key={r.cat} style={{ borderBottom: "1px solid var(--border)" }}>
                   <td style={tdStyle}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ width: 10, height: 10, borderRadius: 3, background: r.color || "var(--accent)", flexShrink: 0 }} />
+                      <span style={{ width: 10, height: 10, borderRadius: 99, background: chartColor(r.color, i), flexShrink: 0 }} />
                       <span style={{ fontWeight: 600 }}>{r.cat}</span>
                     </div>
                   </td>
-                  <td style={tdStyle} className="text-muted">{r.count}</td>
-                  <td style={{ ...tdStyle, fontWeight: 700 }}>{Math.round(r.total).toLocaleString()} EGP</td>
-                  <td style={tdStyle} className="text-muted">{Math.round(r.avg).toLocaleString()} EGP</td>
+                  <td style={tdStyle} className="text-muted"><span className="num">{r.count}</span></td>
+                  <td style={{ ...tdStyle, fontWeight: 700 }}><span className="num">{Math.round(r.total).toLocaleString()} EGP</span></td>
+                  <td style={tdStyle} className="text-muted"><span className="num">{Math.round(r.avg).toLocaleString()} EGP</span></td>
                   <td style={tdStyle}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <div style={{ flex: 1, height: 6, borderRadius: 3, background: "var(--surface-hover)", overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${r.pct}%`, background: r.color || "var(--accent)", borderRadius: 3 }} />
+                        <div style={{ height: "100%", width: `${r.pct}%`, background: chartColor(r.color, i), borderRadius: 99 }} />
                       </div>
-                      <span style={{ fontSize: 11, color: "var(--text-muted)", minWidth: 32 }}>{Math.round(r.pct)}%</span>
+                      <span style={{ fontSize: "calc(11px * var(--app-font-scale, 1))", color: "var(--text-muted)", minWidth: 32 }}><span className="num">{Math.round(r.pct)}%</span></span>
                     </div>
                   </td>
                   <td style={{ ...tdStyle, color: trendColor, fontWeight: 600 }}>
-                    {trendFlat ? "—" : `${trendUp ? "▲" : "▼"} ${Math.abs(Math.round(r.trend!))}%`}
+                    <span className="num">{trendFlat ? "—" : `${trendUp ? "▲" : "▼"} ${Math.abs(Math.round(r.trend!))}%`}</span>
                   </td>
                 </tr>
               );

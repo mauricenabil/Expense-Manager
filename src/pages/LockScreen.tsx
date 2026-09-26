@@ -42,18 +42,18 @@ export default function LockScreen() {
         <form onSubmit={handleRecovery} className="card" style={{ width: 380, textAlign: "center" }}>
           <div style={logoBoxStyle}><KeyRound size={28} color="var(--accent)" /></div>
           <h2 style={{ margin: "0 0 4px" }}>Reset Password</h2>
-          <p className="text-muted" style={{ marginTop: 0, marginBottom: 20, fontSize: 13 }}>
+          <p className="text-muted" style={{ marginTop: 0, marginBottom: 20, fontSize: "calc(13px * var(--app-font-scale, 1))" }}>
             Enter the Recovery Code you saved when you first set your password.
           </p>
 
           {newRecoveryCode ? (
             <>
               <div className="card" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent)", marginBottom: 16 }}>
-                <strong style={{ fontSize: 12 }}>Password reset! Your new Recovery Code:</strong>
-                <div style={{ fontFamily: "monospace", fontSize: 18, fontWeight: 700, letterSpacing: 1.5, marginTop: 6, color: "var(--accent)" }}>
+                <strong style={{ fontSize: "calc(12px * var(--app-font-scale, 1))" }}>Password reset! Your new Recovery Code:</strong>
+                <div style={{ fontFamily: "monospace", fontSize: "calc(18px * var(--app-font-scale, 1))", fontWeight: 700, letterSpacing: 1.5, marginTop: 6, color: "var(--accent)" }}>
                   {newRecoveryCode}
                 </div>
-                <p className="text-muted" style={{ fontSize: 11, marginTop: 6, marginBottom: 0 }}>Save this somewhere safe — it replaces your old code.</p>
+                <p className="text-muted" style={{ fontSize: "calc(11px * var(--app-font-scale, 1))", marginTop: 6, marginBottom: 0 }}>Save this somewhere safe — it replaces your old code.</p>
               </div>
               <button type="button" onClick={() => { setShowRecovery(false); setNewRecoveryCode(null); setRecoveryCode(""); setNewPassword(""); }} style={primaryBtnStyle}>
                 Back to Login
@@ -61,9 +61,9 @@ export default function LockScreen() {
             </>
           ) : (
             <>
-              <input style={fieldStyle} placeholder="Recovery Code (XXXXXX-XXXXXX)" value={recoveryCode} onChange={(e) => setRecoveryCode(e.target.value)} />
+              <input dir="auto" style={fieldStyle} placeholder="Recovery Code (XXXXXX-XXXXXX)" value={recoveryCode} onChange={(e) => setRecoveryCode(e.target.value)} />
               <input type="password" style={{ ...fieldStyle, marginTop: 10 }} placeholder="New password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
-              {recoveryError && <p style={{ color: "var(--danger)", fontSize: 13, marginTop: 10, marginBottom: 0 }}>{recoveryError}</p>}
+              {recoveryError && <p style={{ color: "var(--danger)", fontSize: "calc(13px * var(--app-font-scale, 1))", marginTop: 10, marginBottom: 0 }}>{recoveryError}</p>}
               <button type="submit" style={{ ...primaryBtnStyle, marginTop: 16 }}>Reset Password</button>
               <button type="button" onClick={() => setShowRecovery(false)} style={linkBtnStyle}>Back to Login</button>
             </>
@@ -85,11 +85,11 @@ export default function LockScreen() {
           <Lock size={18} color="var(--text-muted)" />
           <input
             type="password" autoFocus value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password"
-            style={{ flex: 1, border: "none", outline: "none", background: "transparent", color: "var(--text)", fontSize: 15 }}
+            style={{ flex: 1, border: "none", outline: "none", background: "transparent", color: "var(--text)", fontSize: "calc(15px * var(--app-font-scale, 1))" }}
           />
         </div>
 
-        {error && <p style={{ color: "var(--danger)", fontSize: 13, marginTop: 10, marginBottom: 0 }}>{error}</p>}
+        {error && <p style={{ color: "var(--danger)", fontSize: "calc(13px * var(--app-font-scale, 1))", marginTop: 10, marginBottom: 0 }}>{error}</p>}
 
         <button type="submit" disabled={checking || password.length === 0} style={{ ...primaryBtnStyle, width: "100%", marginTop: 20, opacity: checking || password.length === 0 ? 0.6 : 1 }}>
           {checking ? "Checking..." : "Unlock"}
@@ -103,6 +103,6 @@ export default function LockScreen() {
 
 const containerStyle = { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" } as const;
 const logoBoxStyle = { width: 56, height: 56, borderRadius: 16, background: "var(--accent-soft)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" } as const;
-const fieldStyle = { width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface-hover)", color: "var(--text)", fontSize: 14, outline: "none", boxSizing: "border-box" } as const;
-const primaryBtnStyle = { width: "100%", padding: "12px", borderRadius: 10, border: "none", background: "var(--accent)", color: "#fff", fontWeight: 600, fontSize: 15, cursor: "pointer" } as const;
-const linkBtnStyle = { display: "block", width: "100%", marginTop: 14, background: "none", border: "none", color: "var(--text-muted)", fontSize: 12, cursor: "pointer", textDecoration: "underline" } as const;
+const fieldStyle = { width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface-hover)", color: "var(--text)", fontSize: "calc(14px * var(--app-font-scale, 1))", outline: "none", boxSizing: "border-box" } as const;
+const primaryBtnStyle = { width: "100%", padding: "12px", borderRadius: 10, border: "none", background: "var(--accent)", color: "var(--on-accent)", fontWeight: 600, fontSize: "calc(15px * var(--app-font-scale, 1))", cursor: "pointer" } as const;
+const linkBtnStyle = { display: "block", width: "100%", marginTop: 14, background: "none", border: "none", color: "var(--text-muted)", fontSize: "calc(12px * var(--app-font-scale, 1))", cursor: "pointer", textDecoration: "underline" } as const;

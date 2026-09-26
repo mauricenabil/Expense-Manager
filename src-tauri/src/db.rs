@@ -50,7 +50,8 @@ fn run_migrations(conn: &Connection) {
         (1, include_str!("../migrations/001_initial.sql")),
         (2, include_str!("../migrations/002_recovery_code.sql")),
         (3, include_str!("../migrations/003_pinning.sql")),
-        // (4, include_str!("../migrations/004_xxx.sql")),  <-- أضف هنا مستقبلاً
+        (4, include_str!("../migrations/004_planned_purchases.sql")),
+        // (5, include_str!("../migrations/005_xxx.sql")),  <-- أضف هنا مستقبلاً
     ];
 
     for (version, sql) in migrations {
