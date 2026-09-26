@@ -49,6 +49,10 @@ export interface ExpenseWithDetails {
   payment_method_name?: string | null;
   description?: string | null;
   tag_ids?: string[];
+  /** وقت الإنشاء الفعلي (ISO/`datetime('now')` من قاعدة البيانات) — يُستخدم
+   *  لترتيب مصروفات نفس اليوم من الأحدث إلى الأقدم (مثال: اللوحة الجانبية
+   *  في صفحة Calendar). اختياري لأنه غير متاح في كل مسارات إنشاء الكائن. */
+  created_at?: string;
 }
 
 export interface DashboardSummary {

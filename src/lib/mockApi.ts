@@ -293,7 +293,13 @@ export const mockApi = {
     const db = loadDB();
     const result = db.expenses
       .filter((e) => !e.deleted_at)
-      .sort((a, b) => (a.date < b.date ? 1 : -1))
+      // نفس ترتيب get_expenses الحقيقي في الـ backend: التاريخ تنازلياً، وعند
+      // تساوي التاريخ يُفصَل بينهما بوقت الإنشاء الفعلي تنازلياً (الأحدث أولاً).
+      .sort((a, b) => {
+        if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+        if (a.created_at !== b.created_at) return a.created_at < b.created_at ? 1 : -1;
+        return 0;
+      })
       .slice(offset, offset + limit)
       .map((e) => {
         const cat = db.categories.find((c) => c.id === e.category_id);
@@ -311,6 +317,7 @@ export const mockApi = {
           payment_method_name: pm?.name ?? null,
           description: e.description ?? null,
           tag_ids: e.tag_ids ?? [],
+          created_at: e.created_at,
         };
       });
     return delay(result);
@@ -444,6 +451,7 @@ export const mockApi = {
           sub_category_id: e.sub_category_id ?? null,
           payment_method_id: e.payment_method_id ?? null, payment_method_name: pm?.name ?? null,
           description: e.description ?? null,
+          created_at: e.created_at,
         };
       });
     return delay(result);

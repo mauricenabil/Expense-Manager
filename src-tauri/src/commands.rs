@@ -100,6 +100,9 @@ pub struct ExpenseWithDetails {
     pub payment_method_name: Option<String>,
     pub description: Option<String>,
     pub tag_ids: Vec<String>,
+    /// وقت الإنشاء الفعلي — يُستخدم في الواجهة لترتيب مصروفات نفس اليوم
+    /// من الأحدث إلى الأقدم (مثال: اللوحة الجانبية في صفحة Calendar).
+    pub created_at: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -395,7 +398,8 @@ pub fn get_expenses(db: State<Db>, limit: i64, offset: i64) -> Result<Vec<Expens
         .prepare(
             "SELECT e.id, e.name, e.date, e.amount, e.category_id, c.name, c.color,
                     e.sub_category_id, e.payment_method_id, p.name, e.description,
-                    (SELECT group_concat(tag_id) FROM expense_tags WHERE expense_id = e.id)
+                    (SELECT group_concat(tag_id) FROM expense_tags WHERE expense_id = e.id),
+                    e.created_at
              FROM expenses e
              LEFT JOIN categories c ON c.id = e.category_id
              LEFT JOIN payment_methods p ON p.id = e.payment_method_id
@@ -420,6 +424,7 @@ pub fn get_expenses(db: State<Db>, limit: i64, offset: i64) -> Result<Vec<Expens
                 payment_method_name: row.get(9)?,
                 description: row.get(10)?,
                 tag_ids: split_ids(row.get(11)?),
+                created_at: row.get(12)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -435,7 +440,8 @@ pub fn get_deleted_expenses(db: State<Db>) -> Result<Vec<ExpenseWithDetails>, St
         .prepare(
             "SELECT e.id, e.name, e.date, e.amount, e.category_id, c.name, c.color,
                     e.sub_category_id, e.payment_method_id, p.name, e.description,
-                    (SELECT group_concat(tag_id) FROM expense_tags WHERE expense_id = e.id)
+                    (SELECT group_concat(tag_id) FROM expense_tags WHERE expense_id = e.id),
+                    e.created_at
              FROM expenses e
              LEFT JOIN categories c ON c.id = e.category_id
              LEFT JOIN payment_methods p ON p.id = e.payment_method_id
@@ -459,6 +465,7 @@ pub fn get_deleted_expenses(db: State<Db>) -> Result<Vec<ExpenseWithDetails>, St
                 payment_method_name: row.get(9)?,
                 description: row.get(10)?,
                 tag_ids: split_ids(row.get(11)?),
+                created_at: row.get(12)?,
             })
         })
         .map_err(|e| e.to_string())?;
