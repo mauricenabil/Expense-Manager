@@ -15,6 +15,14 @@ interface DropdownPortalProps {
   width?: number;
   /** المسافة الرأسية بين الزر والقائمة */
   gap?: number;
+  /**
+   * تجاوز اختياري لطبقة الـ z-index الافتراضية (Z.dropdown).
+   * يُستخدم فقط عندما تُفتح القائمة من داخل نافذة منبثقة (Modal)، حيث
+   * تحتاج القائمة لطبقة أعلى من الـ Modal نفسه (مثال: Z.modalPopover)
+   * كي لا تُحجب خلف طبقة الـ Modal. باقي الاستخدامات لا تمرّر هذا الخيار
+   * فتحصل على نفس السلوك القديم تماماً.
+   */
+  zIndex?: number;
 }
 
 /**
@@ -22,7 +30,7 @@ interface DropdownPortalProps {
  * أي كارت أو حاوية بها overflow. هذا يضمن ظهورها دائماً فوق كل عناصر الصفحة
  * بدون أي قصّ، بغض النظر عن مكانها داخل التطبيق.
  */
-export default function DropdownPortal({ anchorRef, menuRef, open, children, align = "right", width, gap = 6 }: DropdownPortalProps) {
+export default function DropdownPortal({ anchorRef, menuRef, open, children, align = "right", width, gap = 6, zIndex }: DropdownPortalProps) {
   const [pos, setPos] = useState<{ top: number; left: number; minWidth: number } | null>(null);
 
   useLayoutEffect(() => {
@@ -30,8 +38,13 @@ export default function DropdownPortal({ anchorRef, menuRef, open, children, ali
 
     const update = () => {
       const rect = anchorRef.current!.getBoundingClientRect();
+
+      // لا قسمة على أي معامل هنا. سابقاً كان الجذر مكبَّراً بـ zoom فتختلف
+      // وحدات position:fixed عن بكسلات getBoundingClientRect، أما الآن فتكبير
+      // الخط لا يمسّ التخطيط إطلاقاً، والإحداثيات تُستخدم كما هي.
       const top = rect.bottom + gap;
       const left = align === "right" ? rect.right - (width ?? rect.width) : rect.left;
+
       setPos({ top: Math.max(8, top), left: Math.max(8, left), minWidth: rect.width });
     };
 
@@ -51,7 +64,7 @@ export default function DropdownPortal({ anchorRef, menuRef, open, children, ali
     top: pos.top,
     left: pos.left,
     minWidth: width ?? pos.minWidth,
-    zIndex: Z.dropdown,
+    zIndex: zIndex ?? Z.dropdown,
   };
 
   return createPortal(

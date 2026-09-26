@@ -6,7 +6,10 @@ import type {
   DashboardSummary,
   SubCategory,
   Tag,
+  PlannedPurchase,
+  PlannedPurchaseInput,
 } from "../types";
+import { APP_VERSION } from "./version";
 
 /**
  * Mock Backend — يُستخدم فقط عند التشغيل في متصفح عادي (npm run dev بدون Tauri).
@@ -35,17 +38,18 @@ interface MockDB {
     next_due_date: string; is_active: boolean;
   }[];
   activityLog: { id: string; action_type: string; table_name: string | null; created_at: string }[];
+  plannedPurchases: (PlannedPurchase & { deleted_at: string | null })[];
 }
 
 const DEFAULT_DB: MockDB = {
   categories: [
-    { id: "cat-food", name: "Food & Dining", icon: "utensils", color: "#FF8A65", sort_order: 1 },
-    { id: "cat-transport", name: "Transportation", icon: "car", color: "#4DA3FF", sort_order: 2 },
-    { id: "cat-bills", name: "Bills & Utilities", icon: "receipt", color: "#FFC107", sort_order: 3 },
-    { id: "cat-shopping", name: "Shopping", icon: "shopping-bag", color: "#AB47BC", sort_order: 4 },
-    { id: "cat-health", name: "Health", icon: "heart-pulse", color: "#EF5350", sort_order: 5 },
-    { id: "cat-entertain", name: "Entertainment", icon: "film", color: "#26C6DA", sort_order: 6 },
-    { id: "cat-other", name: "Other", icon: "tag", color: "#8AA0BD", sort_order: 8 },
+    { id: "cat-food", name: "Food & Dining", icon: "utensils", color: "#ED6F50", sort_order: 1 },
+    { id: "cat-transport", name: "Transportation", icon: "car", color: "#5B8FD9", sort_order: 2 },
+    { id: "cat-bills", name: "Bills & Utilities", icon: "receipt", color: "#D6A032", sort_order: 3 },
+    { id: "cat-shopping", name: "Shopping", icon: "shopping-bag", color: "#A46FB0", sort_order: 4 },
+    { id: "cat-health", name: "Health", icon: "heart-pulse", color: "#D4564A", sort_order: 5 },
+    { id: "cat-entertain", name: "Entertainment", icon: "film", color: "#3FA9A0", sort_order: 6 },
+    { id: "cat-other", name: "Other", icon: "tag", color: "#8A93A6", sort_order: 8 },
   ],
   subCategories: [
     { id: "sub-groceries", category_id: "cat-food", name: "Groceries" },
@@ -69,6 +73,7 @@ const DEFAULT_DB: MockDB = {
   savingsGoals: [],
   recurringExpenses: [],
   activityLog: [],
+  plannedPurchases: [],
 };
 
 function loadDB(): MockDB {
@@ -77,7 +82,11 @@ function loadDB(): MockDB {
     localStorage.setItem(DB_KEY, JSON.stringify(DEFAULT_DB));
     return structuredClone(DEFAULT_DB);
   }
-  return JSON.parse(raw);
+  const db = JSON.parse(raw) as MockDB;
+  // قواعد بيانات المعاينة المحفوظة قبل هذه الميزة لا تحتوي المفتاح الجديد،
+  // فنضيفه هنا بدل ما تنفجر الصفحة على undefined.
+  if (!db.plannedPurchases) db.plannedPurchases = [];
+  return db;
 }
 
 function saveDB(db: MockDB) {
@@ -94,6 +103,104 @@ function generateRecoveryCode(): string {
 }
 
 export const mockApi = {
+  // ---------- Planned Purchases ----------
+  getPlannedPurchases: () => {
+    const db = loadDB();
+    return delay(
+      db.plannedPurchases
+        .filter((p) => !p.deleted_at)
+        .map((p) => ({
+          ...p,
+          category_name: db.categories.find((c) => c.id === p.category_id)?.name ?? null,
+          category_color: db.categories.find((c) => c.id === p.category_id)?.color ?? null,
+          payment_method_name: db.paymentMethods.find((m) => m.id === p.payment_method_id)?.name ?? null,
+        }))
+        .sort((a, b) => {
+          const rank = (s: string) => (s === "planned" ? 0 : s === "purchased" ? 1 : 2);
+          return rank(a.status) - rank(b.status)
+            || b.priority - a.priority
+            || (a.target_date ?? "9999-12-31").localeCompare(b.target_date ?? "9999-12-31");
+        })
+    );
+  },
+  createPlannedPurchase: (input: PlannedPurchaseInput) => {
+    const db = loadDB();
+    const id = uuid();
+    db.plannedPurchases.push({
+      id,
+      name: input.name.trim(),
+      estimated_amount: input.estimated_amount,
+      category_id: input.category_id,
+      payment_method_id: input.payment_method_id,
+      target_date: input.target_date,
+      priority: input.priority,
+      notes: input.notes,
+      status: "planned",
+      converted_expense_id: null,
+      purchased_at: null,
+      created_at: new Date().toISOString(),
+      deleted_at: null,
+    });
+    saveDB(db);
+    return delay(id);
+  },
+  updatePlannedPurchase: (id: string, input: PlannedPurchaseInput) => {
+    const db = loadDB();
+    const p = db.plannedPurchases.find((x) => x.id === id);
+    if (!p) throw new Error("That plan no longer exists.");
+    if (p.status === "purchased")
+      throw new Error("This plan was already converted to an expense. Edit the expense instead.");
+    Object.assign(p, input);
+    saveDB(db);
+    return delay(undefined);
+  },
+  convertPlannedToExpense: (id: string, date: string, actualAmount: number | null) => {
+    const db = loadDB();
+    const p = db.plannedPurchases.find((x) => x.id === id);
+    if (!p) throw new Error("That plan no longer exists.");
+    if (p.status === "purchased") throw new Error("This plan was already converted to an expense.");
+    const expenseId = uuid();
+    db.expenses.push({
+      id: expenseId,
+      name: p.name,
+      date,
+      amount: actualAmount ?? p.estimated_amount,
+      category_id: p.category_id ?? null,
+      sub_category_id: null,
+      payment_method_id: p.payment_method_id ?? null,
+      description: "Converted from a planned purchase",
+      created_at: new Date().toISOString(),
+      deleted_at: null,
+    });
+    p.status = "purchased";
+    p.converted_expense_id = expenseId;
+    p.purchased_at = new Date().toISOString();
+    db.activityLog.unshift({ id: uuid(), action_type: "planned_converted", table_name: "planned_purchases", created_at: new Date().toISOString() });
+    saveDB(db);
+    return delay(expenseId);
+  },
+  cancelPlannedPurchase: (id: string) => {
+    const db = loadDB();
+    const p = db.plannedPurchases.find((x) => x.id === id);
+    if (p && p.status === "planned") p.status = "cancelled";
+    saveDB(db);
+    return delay(undefined);
+  },
+  restorePlannedPurchase: (id: string) => {
+    const db = loadDB();
+    const p = db.plannedPurchases.find((x) => x.id === id);
+    if (p && p.status === "cancelled") p.status = "planned";
+    saveDB(db);
+    return delay(undefined);
+  },
+  deletePlannedPurchase: (id: string) => {
+    const db = loadDB();
+    const p = db.plannedPurchases.find((x) => x.id === id);
+    if (p) p.deleted_at = new Date().toISOString();
+    saveDB(db);
+    return delay(undefined);
+  },
+
   // ---------- Categories ----------
   getCategories: () => delay(loadDB().categories),
   createCategory: (name: string, icon?: string, color?: string) => {
@@ -203,6 +310,7 @@ export const mockApi = {
           payment_method_id: e.payment_method_id ?? null,
           payment_method_name: pm?.name ?? null,
           description: e.description ?? null,
+          tag_ids: e.tag_ids ?? [],
         };
       });
     return delay(result);
@@ -219,6 +327,7 @@ export const mockApi = {
       sub_category_id: expense.sub_category_id ?? null,
       payment_method_id: expense.payment_method_id ?? null,
       description: expense.description ?? null,
+      tag_ids: expense.tag_ids ?? [],
       created_at: new Date().toISOString(),
       deleted_at: null,
     });
@@ -489,4 +598,20 @@ export const mockApi = {
     return delay(undefined);
   },
   closeSplashscreen: () => delay(undefined), // لا نافذة splash فعلية في وضع المعاينة بالمتصفح
+
+  // ---------- Offline Update (محاكاة — المتصفح ما يقدرش يشغّل مثبّت ويندوز) ----------
+  getAppPaths: () =>
+    delay({
+      version: APP_VERSION,
+      app_data_dir: "C:\\Users\\User\\AppData\\Roaming\\com.personal.expensemanager (Preview Mode)",
+      db_path: "C:\\Users\\User\\AppData\\Roaming\\com.personal.expensemanager\\expenses.db (Preview Mode)",
+      exe_path: "(Preview Mode)",
+      install_dir: "C:\\Program Files\\Expense Manager (Preview Mode)",
+    }),
+  pickUpdateFile: () =>
+    Promise.reject(new Error("Choosing an update file only works in the desktop app.")),
+  inspectUpdateFile: () =>
+    Promise.reject(new Error("Update files can only be inspected in the desktop app.")),
+  runUpdateInstaller: () =>
+    Promise.reject(new Error("The installer can only be launched from the desktop app.")),
 };

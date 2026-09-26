@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Expense Manager</title>
+    <!-- أيقونة التطبيق نفسها كـ favicon: تظهر في وضع معاينة المتصفح
+         (npm run dev) وفي أي اختصار ويب. نسخة نافذة سطح المكتب بتاخد
+         أيقونتها من src-tauri/icons عبر tauri.conf.json. -->
+    <link rel="icon" type="image/svg+xml" href="/app-icon.svg" />
+
     <script>
       // يقرأ الثيم المحفوظ ويطبّقه فوراً بشكل متزامن (قبل أي CSS أو React) لمنع أي وميض
       // أبيض بين الفتح والظهور الفعلي — يطابق ألوان --bg الحقيقية في theme.css لكل وضع.
@@ -11,12 +16,27 @@
         var theme = localStorage.getItem("expense-manager-theme");
         if (theme !== "light" && theme !== "dark") theme = "dark";
         document.documentElement.setAttribute("data-theme", theme);
-        document.documentElement.style.backgroundColor = theme === "dark" ? "#0F1B2D" : "#F4F6FA";
+        document.documentElement.style.backgroundColor = theme === "dark" ? "#161D27" : "#F7F4ED";
+
+        // مقياسا الخط يُطبّقان هنا أيضاً (وليس في React فقط) لمنع وميض
+        // تغيّر الحجم بين أول رسم وتحميل FontScaleProvider.
+        var appS = localStorage.getItem("expense-manager-app-font-scale") || "1";
+        var arS = localStorage.getItem("expense-manager-ar-font-scale") || "1.1";
+        document.documentElement.style.setProperty("--app-font-scale", appS);
+        document.documentElement.style.setProperty("--ar-font-scale", arS);
       })();
     </script>
+
+    <!-- الخطوط تُستورد محلياً داخل src/main.tsx: معظمها من حزم @fontsource،
+         وخط Cairo العربي من ملف مُستضاف داخل public/fonts/cairo مباشرة.
+         لا يوجد أي رابط خارجي هنا عمداً: التطبيق يعمل أوفلاين 100%،
+         وأي <link> لـ fonts.googleapis.com كان يفشل بصمت على جهاز بلا
+         إنترنت فيرجع الخط إلى Segoe UI وتختفي هوية التصميم بالكامل. -->
+
     <style>
       /* نفس لون الخلفية الافتراضي مباشرة على body قبل تحميل أي stylesheet */
       html, body { margin: 0; background-color: inherit; }
+      body { font-family: "Segoe UI", Tahoma, Arial, sans-serif; }
     </style>
   </head>
   <body>

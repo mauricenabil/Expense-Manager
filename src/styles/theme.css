@@ -1,23 +1,105 @@
 /* ===================================================================
-   Theme System — CSS Variables
-   التبديل بين الوضعين يتم عبر إضافة attribute data-theme على <html>
+   Expense Manager — Design System 2026  ("Editorial Warmth")
+   -------------------------------------------------------------------
+   تصميم جديد بالكامل مبني على نفس أسماء المتغيرات القديمة، لذلك كل
+   شاشة وكل ميزة موجودة تأخذ الشكل الجديد تلقائياً بدون حذف أي وظيفة.
+
+   الهوية:
+   - Light : ورق دافئ (Warm paper) + أخضر مُزرَق عميق (Deep Teal)
+   - Dark  : ليل أزرق رمادي هادئ + Teal مضيء
+   - لمسة  : مرجاني (Coral) للتأكيد + Serif أنيق للعناوين والأرقام
+   - خطوط  : DM Sans (إنجليزي) + Cairo (عربي) — متوافقان
+             في الارتفاع والوزن فلا يبدو النص المختلط مكسوراً.
    =================================================================== */
 
+/* ===================================================================
+   1) Typography tokens
+   الترتيب داخل الـ stack مقصود: DM Sans لا يحتوي حروفاً عربية، لذلك
+   المتصفح ينزل تلقائياً لخط Cairo لأي حرف عربي — يعني الإنجليزي يطلع
+   بخط 2026 والعربي يطلع بخط Cairo، في نفس السطر.
+   Segoe UI / Tahoma احتياطي مضمون على ويندوز لو النت مقطوع أول تشغيل.
+   =================================================================== */
+:root {
+  --font-sans:
+    "DM Sans", "Cairo", "Segoe UI", Tahoma, Arial,
+    system-ui, sans-serif;
+
+  /* عناوين وأرقام كبيرة — Serif إنجليزي أنيق، وللعربي يرجع لـ Cairo */
+  --font-display:
+    "Instrument Serif", "Cairo", Georgia, "Segoe UI", serif;
+
+  /* أرقام/مبالغ: عرض ثابت لكل رقم حتى تتراصف الأعمدة في الجداول */
+  --font-mono:
+    "Space Mono", "Cairo", ui-monospace, "Cascadia Mono",
+    Consolas, monospace;
+
+  --radius-sm: 10px;
+  --radius: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 26px;
+}
+
+/* ===================================================================
+   2) Dark theme  — الافتراضي في التطبيق
+   =================================================================== */
 :root[data-theme="dark"] {
-  --bg: #0F1B2D;
-  --surface: #1B2A41;
-  --surface-hover: #233553;
-  --border: #2A3B57;
-  --text: #E6EDF5;
-  --text-muted: #8AA0BD;
-  --accent: #4DA3FF;
-  --accent-soft: rgba(77, 163, 255, 0.15);
-  --success: #4ADE80;
-  --warning: #FBBF24;
-  --danger: #F87171;
-  --shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --bg:            #161D27;
+  --bg-elevated:   #1A222E;
+  --surface:       #1F2733;
+  --surface-hover: #2A3441;
+  --surface-sunken:#131922;
+  --border:        #323B48;
+  --border-strong: #3E4959;
+  --text:          #F2EEE3;
+  --text-muted:    #A4ACB7;
+  --text-faint:    #6E7787;
 
-  /* Z-index system — موحّد لكل التطبيق */
+  --accent:        #3DAE93;
+  --accent-strong: #4FC4A7;
+  /* لون النص فوق خلفية الـ accent — في الوضع الداكن الـ accent فاتح،
+     فالأبيض عليه يكون ضعيف التباين، لذلك نستخدم كحلي غامق بدلاً منه. */
+  --on-accent:     #102019;
+  --on-danger:     #2A0F0B;
+  --accent-soft:   rgba(61, 174, 147, 0.16);
+  --accent-glow:   rgba(61, 174, 147, 0.30);
+
+  --coral:         #ED7354;
+  --coral-soft:    rgba(237, 115, 84, 0.16);
+
+  --success:       #4FBE84;
+  --success-soft:  rgba(79, 190, 132, 0.16);
+  --warning:       #E5AE45;
+  --warning-soft:  rgba(229, 174, 69, 0.16);
+  --danger:        #DC6350;
+  --danger-soft:   rgba(220, 99, 80, 0.16);
+
+  /* ظلال متعددة الطبقات بدل ظل واحد ثقيل */
+  --shadow:     0 1px 2px rgba(0,0,0,.28), 0 6px 18px rgba(0,0,0,.30);
+  --shadow-lg:  0 2px 6px rgba(0,0,0,.30), 0 16px 42px rgba(0,0,0,.42);
+  --shadow-sm:  0 1px 2px rgba(0,0,0,.26);
+  --card-sheen: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,0) 58%);
+  --grain-opacity: .030;
+
+  /* لوحة ألوان الرسوم البيانية — متناغمة مع الهوية، لا ألوان عشوائية */
+  --c1: #3DAE93;  /* teal    */
+  --c2: #F08262;  /* coral   */
+  --c3: #F0B945;  /* amber   */
+  --c4: #7BA6E8;  /* blue    */
+  --c5: #BA86C4;  /* plum    */
+  --c6: #E5705F;  /* brick   */
+  --c7: #4FC4BA;  /* turquoise */
+  --c8: #9AA4B5;  /* slate   */
+
+  /* تدرّج حرارة الـ Heatmap / التقويم (من الأبرد للأسخن) */
+  --heat-0: #2A3441;
+  --heat-1: rgba(61, 174, 147, .42);
+  --heat-2: rgba(240, 185, 69, .62);
+  --heat-3: rgba(240, 130, 98, .78);
+  --heat-4: #E5705F;
+
+  color-scheme: dark;
+
+  /* Z-index system — موحّد لكل التطبيق (كما هو، بدون تغيير) */
   --z-base: 1;
   --z-card: 2;
   --z-sticky-nav: 30;
@@ -29,21 +111,61 @@
   --z-command-palette: 1100;
 }
 
+/* ===================================================================
+   3) Light theme — ورق دافئ، مريح للعين ساعات طويلة
+   =================================================================== */
 :root[data-theme="light"] {
-  --bg: #F4F6FA;
-  --surface: #FFFFFF;
-  --surface-hover: #F0F3F8;
-  --border: #E2E8F0;
-  --text: #1A2433;
-  --text-muted: #64748B;
-  --accent: #2D7DF6;
-  --accent-soft: rgba(45, 125, 246, 0.10);
-  --success: #16A34A;
-  --warning: #D97706;
-  --danger: #DC2626;
-  --shadow: 0 2px 12px rgba(15, 27, 45, 0.08);
+  --bg:            #F7F4ED;
+  --bg-elevated:   #FBF8F2;
+  --surface:       #FDFBF7;
+  --surface-hover: #F1ECE1;
+  --surface-sunken:#EFEADF;
+  --border:        #E2DBD0;
+  --border-strong: #D2C9BA;
+  --text:          #232E3E;
+  --text-muted:    #637083;
+  --text-faint:    #8B95A5;
 
-  /* Z-index system — نفس القيم في كلا الوضعين */
+  --accent:        #297563;
+  --accent-strong: #1F5E4F;
+  --on-accent:     #FDFBF7;
+  --on-danger:     #FDFBF7;
+  --accent-soft:   rgba(41, 117, 99, 0.10);
+  --accent-glow:   rgba(41, 117, 99, 0.18);
+
+  --coral:         #ED6F50;
+  --coral-soft:    rgba(237, 111, 80, 0.12);
+
+  --success:       #2F7D5B;
+  --success-soft:  rgba(47, 125, 91, 0.12);
+  --warning:       #B7801B;
+  --warning-soft:  rgba(183, 128, 27, 0.14);
+  --danger:        #CE412C;
+  --danger-soft:   rgba(206, 65, 44, 0.12);
+
+  --shadow:     0 1px 2px rgba(60,48,32,.05), 0 6px 18px rgba(60,48,32,.07);
+  --shadow-lg:  0 2px 6px rgba(60,48,32,.07), 0 18px 44px rgba(60,48,32,.12);
+  --shadow-sm:  0 1px 2px rgba(60,48,32,.06);
+  --card-sheen: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0) 60%);
+  --grain-opacity: .038;
+
+  --c1: #297563;
+  --c2: #ED6F50;
+  --c3: #C98A1E;
+  --c4: #4E7FC4;
+  --c5: #9A5FA6;
+  --c6: #CE4A3C;
+  --c7: #2F9A92;
+  --c8: #7E889A;
+
+  --heat-0: #EFEADF;
+  --heat-1: rgba(41, 117, 99, .28);
+  --heat-2: rgba(201, 138, 30, .48);
+  --heat-3: rgba(237, 111, 80, .62);
+  --heat-4: #CE4A3C;
+
+  color-scheme: light;
+
   --z-base: 1;
   --z-card: 2;
   --z-sticky-nav: 30;
@@ -55,76 +177,186 @@
   --z-command-palette: 1100;
 }
 
-* {
-  box-sizing: border-box;
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-}
+/* ===================================================================
+   4) Base
+   =================================================================== */
+* { box-sizing: border-box; }
+
+html { background: var(--bg); }
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  /* Tahoma: دعم عربي موثوق منذ Windows XP (fallback أساسي للعربي)
-     Segoe UI: يدعم العربي جيداً من Windows 8 فصاعداً ويُفضَّل بصرياً للإنجليزي
-     Arial/sans-serif: احتياطي أخير يدعم عربي أساسي على أي نظام */
-  font-family: "Segoe UI", Tahoma, "Inter", Arial, system-ui, sans-serif;
+  font-family: var(--font-sans);
+  font-size: calc(14px * var(--app-font-scale, 1));
+  line-height: 1.65;              /* سطر مريح — مهم جداً لقراءة العربي */
+  letter-spacing: -0.006em;
+  font-variant-numeric: tabular-nums;  /* أرقام متساوية العرض في كل مكان */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
+
+/* طبقة حُبيبات خفيفة جداً فوق كل شيء — تكسر "مسطّحية" الشاشة وتعطي
+   إحساس الورق. لا تعترض أي ضغطة ماوس (pointer-events: none). */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: var(--grain-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
+}
+
+::selection { background: var(--accent-glow); color: var(--text); }
+
+/* Scrollbars تتبع الثيم بدل الشكل الافتراضي الرمادي */
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 99px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--text-faint); background-clip: content-box; }
 
 /* ===================================================================
-   Unicode Bidirectional Text (RTL/LTR) Support
-   يحل مشكلة الترتيب البصري الخاطئ عند مزج عربي + إنجليزي + أرقام +
-   علامات ترقيم/اقتباس في نفس الحقل (مثال: شيبسي "بيج شيبسي").
-   unicode-bidi: plaintext يجعل كل عنصر يحلّل اتجاهه بناءً على أول حرف
-   قوي فيه تلقائياً (نفس تأثير dir="auto" لكن عبر CSS شامل لكل عناصر
-   الإدخال والعرض دفعة واحدة، بدل تعديل مئات العناصر يدوياً).
+   5) Headings — Serif محرري، هو اللي بيدّي الإحساس "2026"
+   العربي ينزل تلقائياً لخط Cairo بوزن أثقل فيظل متناسقاً.
    =================================================================== */
-input, textarea, select {
-  unicode-bidi: plaintext;
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--text);
 }
+h1 { font-size: calc(32px * var(--app-font-scale, 1)); margin: 0 0 20px; }
+h2 { font-size: calc(26px * var(--app-font-scale, 1)); margin: 0 0 14px; }
+h3 { font-size: calc(19px * var(--app-font-scale, 1)); margin: 0 0 12px; }
+h4 { font-size: calc(16px * var(--app-font-scale, 1)); margin: 0 0 8px; }
 
-/* عناصر عرض النصوص الحرة التي يكتبها المستخدم (اسم مصروف، ملاحظات، فئات) */
-.bidi-auto {
-  unicode-bidi: plaintext;
-  text-align: start; /* يحترم اتجاه المحتوى الفعلي بدل يسار/يمين ثابت */
-}
-
-/* البطاقة الموحدة المستخدمة في كل التطبيق */
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: var(--shadow);
-  padding: 20px;
-}
-
+/* عناوين صغيرة فوق الأقسام (Pinned Budgets ... إلخ) */
 .text-muted { color: var(--text-muted); }
 .accent { color: var(--accent); }
 
 /* ===================================================================
-   Global Animation System (v2.7)
+   6) Unicode Bidirectional Text (RTL/LTR) Support  — [محفوظ كما هو]
+   يحل مشكلة الترتيب البصري الخاطئ عند مزج عربي + إنجليزي + أرقام +
+   علامات ترقيم في نفس الحقل (مثال: شيبسي "بيج شيبسي").
    =================================================================== */
+input, textarea, select { unicode-bidi: plaintext; }
 
-/* ===================================================================
-   Global Motion System
-   نظام حركة موحّد لكل التطبيق: مدد وeasing curves ثابتة حتى يشعر
-   المستخدم أن كل تفاعل جزء من نظام واحد متكامل، لا تجميعة عشوائية.
-   كل الحركات هنا تعتمد على transform/opacity فقط (GPU-friendly)
-   لتفادي أي إعادة Layout غير ضرورية أو استهلاك CPU زائد.
-   =================================================================== */
-
-:root {
-  /* Durations — ثلاث سرعات فقط، لا أكثر، لضمان الاتساق */
-  --motion-fast: 120ms;    /* أزرار، هوفر، أشياء تفاعلية صغيرة */
-  --motion-base: 200ms;    /* دروب داون، مودالز، عناصر قوائم */
-  --motion-slow: 320ms;    /* انتقالات صفحات، دخول كروت */
-
-  /* Easing curves — منحنى واحد "دخول" وواحد "خروج" لكل الحركات */
-  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);      /* حركة عامة متوازنة */
-  --ease-decelerate: cubic-bezier(0.16, 1, 0.3, 1);   /* دخول العناصر (تبدأ سريعة وتهدأ) */
-  --ease-accelerate: cubic-bezier(0.4, 0, 1, 1);      /* خروج العناصر */
+.bidi-auto {
+  unicode-bidi: plaintext;
+  text-align: start;
 }
 
-/* احترام تفضيل المستخدم لتقليل الحركة — يُبطل كل الأنيميشن أدناه فوراً */
+/* ===================================================================
+   7) Card — البطاقة الموحدة المستخدمة في كل التطبيق
+   =================================================================== */
+.card {
+  position: relative;
+  background: var(--surface);
+  background-image: var(--card-sheen);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 22px;
+}
+
+.card:hover { border-color: var(--border-strong); }
+
+/* ===================================================================
+   8) Form controls — شكل موحّد لكل الإدخالات
+   =================================================================== */
+input, textarea, select, button { font: inherit; }
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+textarea,
+select {
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition:
+    border-color var(--motion-fast, 120ms) ease,
+    box-shadow var(--motion-fast, 120ms) ease,
+    background-color var(--motion-fast, 120ms) ease;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+input:not([type="checkbox"]):not([type="radio"]):focus,
+textarea:focus,
+select:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+::placeholder { color: var(--text-faint); opacity: 1; }
+
+/* لوحة ألوان مُنتقي الألوان الأصلي تبقى تعمل كما هي */
+input[type="color"] { cursor: pointer; }
+
+/* ===================================================================
+   9) Utilities جديدة (اختيارية — تُستخدم للأرقام الكبيرة)
+   =================================================================== */
+.display   { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.02em; }
+.num       { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+.mono      { font-family: var(--font-mono); letter-spacing: -0.03em; }
+
+/* رقم KPI الكبير: Serif + tabular، يبان "محرري" وواضح */
+.kpi-value {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: calc(38px * var(--dashboard-font-scale, 1));
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Label صغير فوق الأقسام */
+.eyebrow {
+  font-size: calc(10px * var(--app-font-scale, 1));
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* توهّج خفيف خلف الـ Sidebar يعطي عمق بدل السطح المصمت */
+.sidebar-glow {
+  background:
+    radial-gradient(circle at 15% 0%, var(--accent-soft), transparent 42%),
+    var(--surface);
+}
+
+/* ===================================================================
+   10) Global Motion System — [محفوظ بالكامل من نسختك]
+   نظام حركة موحّد: مدد وeasing curves ثابتة، كلها transform/opacity
+   (GPU-friendly) لتفادي إعادة Layout.
+   =================================================================== */
+:root {
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-slow: 320ms;
+
+  --ease-standard:   cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-decelerate: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-accelerate: cubic-bezier(0.4, 0, 1, 1);
+}
+
+/* انتقال الألوان عند تبديل الثيم — مقصور على الخصائص اللونية فقط */
+body, .card, aside, header, button, input, textarea, select {
+  transition:
+    background-color var(--motion-base) var(--ease-standard),
+    border-color var(--motion-base) var(--ease-standard),
+    color var(--motion-base) var(--ease-standard);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
@@ -134,76 +366,41 @@ input, textarea, select {
   }
 }
 
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: none; }
-}
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-@keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.95) translateY(4px); }
-  to   { opacity: 1; transform: none; }
-}
-@keyframes slideInRight {
-  from { opacity: 0; transform: translateX(16px); }
-  to   { opacity: 1; transform: none; }
-}
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-@keyframes popIn {
-  0%   { opacity: 0; transform: scale(0.8); }
-  60%  { opacity: 1; transform: scale(1.06); }
-  100% { opacity: 1; transform: none; }
-}
-@keyframes checkPop {
-  0%   { opacity: 0; transform: scale(0.5); }
-  100% { opacity: 1; transform: none; }
-}
+@keyframes fadeInUp   { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes fadeIn     { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scaleIn    { from { opacity: 0; transform: scale(0.96) translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes slideInRight { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+@keyframes spin       { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes popIn      { 0% { opacity: 0; transform: scale(0.8); } 60% { opacity: 1; transform: scale(1.06); } 100% { opacity: 1; transform: none; } }
+@keyframes checkPop   { 0% { opacity: 0; transform: scale(0.5); } 100% { opacity: 1; transform: none; } }
 
-/* ── Page & Content Transitions ─────────────────────────────────── */
-/* صفحات كاملة/محتوى تظهر بانتقال خفيف وسريع — لا ينتظر المستخدم */
-.fade-in { animation: fadeInUp var(--motion-slow) var(--ease-decelerate) both; }
+.fade-in      { animation: fadeInUp var(--motion-slow) var(--ease-decelerate) both; }
 .fade-in-item { animation: fadeInUp var(--motion-base) var(--ease-decelerate) both; }
 
-/* ── Staggered Entrance (Dashboard cards, لست كل عنصر) ──────────── */
-/* تُستخدم مع --stagger-index مضبوطة inline لكل عنصر لتأخير بسيط جداً بينهم */
 .kpi-card-in {
   animation: fadeInUp var(--motion-slow) var(--ease-decelerate) both;
   animation-delay: calc(var(--stagger-index, 0) * 40ms);
 }
 
-/* ── Modals & Dialogs ────────────────────────────────────────────── */
-.modal-in { animation: scaleIn var(--motion-base) var(--ease-decelerate) both; }
-
-/* ── Toasts & Notifications ─────────────────────────────────────── */
-.toast-in { animation: slideInRight var(--motion-base) var(--ease-decelerate) both; }
-
-/* ── Dropdowns & Popovers ────────────────────────────────────────── */
+.modal-in           { animation: scaleIn var(--motion-base) var(--ease-decelerate) both; }
+.toast-in           { animation: slideInRight var(--motion-base) var(--ease-decelerate) both; }
 .dropdown-menu-anim { animation: scaleIn var(--motion-fast) var(--ease-decelerate) both; }
 
-/* ── Progress bars & animated numbers ───────────────────────────── */
-.progress-bar-animated { transition: width 0.5s var(--ease-decelerate); }
+.progress-bar-animated { transition: width 0.7s var(--ease-decelerate); }
 
-/* ── List item enter/exit (إضافة/حذف مصروف من القوائم) ──────────── */
 .list-item-enter { animation: fadeInUp var(--motion-base) var(--ease-decelerate) both; }
-.list-item-exit {
-  animation: fadeIn var(--motion-fast) var(--ease-accelerate) reverse both;
-  pointer-events: none;
-}
+.list-item-exit  { animation: fadeIn var(--motion-fast) var(--ease-accelerate) reverse both; pointer-events: none; }
 
-/* ── Refresh / Loading feedback ──────────────────────────────────── */
-.spin-icon { animation: spin 0.8s linear infinite; }
-.success-pop { animation: checkPop var(--motion-base) var(--ease-decelerate) both; }
+.spin-icon    { animation: spin 0.8s linear infinite; }
+.success-pop  { animation: checkPop var(--motion-base) var(--ease-decelerate) both; }
+.chart-in     { animation: fadeIn var(--motion-slow) var(--ease-decelerate) both; }
 
-/* ── Charts: ظهور أول مرة ────────────────────────────────────────── */
-.chart-in { animation: fadeIn var(--motion-slow) var(--ease-decelerate) both; }
-
-/* ── Buttons & Interactive Elements ──────────────────────────────── */
+/* ===================================================================
+   11) Buttons & interactive
+   =================================================================== */
 button {
+  cursor: pointer;
+  border-radius: var(--radius-sm);
   transition:
     background-color var(--motion-fast) var(--ease-standard),
     border-color var(--motion-fast) var(--ease-standard),
@@ -213,20 +410,34 @@ button {
     opacity var(--motion-fast) var(--ease-standard);
 }
 button:active:not(:disabled) { transform: scale(0.97); }
-button:disabled { opacity: 0.6; cursor: not-allowed; }
+button:disabled { opacity: 0.55; cursor: not-allowed; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .card {
   transition:
     box-shadow var(--motion-base) var(--ease-standard),
     transform var(--motion-base) var(--ease-standard),
-    border-color var(--motion-fast) var(--ease-standard);
+    border-color var(--motion-fast) var(--ease-standard),
+    background-color var(--motion-base) var(--ease-standard);
 }
 
-/* عناصر التقويم */
+/* خلايا التقويم */
 .calendar-cell {
   transition:
     background-color var(--motion-fast) var(--ease-standard),
     transform var(--motion-fast) var(--ease-standard),
-    border-color var(--motion-fast) var(--ease-standard);
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
 }
-.calendar-cell:hover { transform: translateY(-1px); }
+.calendar-cell:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ===================================================================
+   12) Recharts — تنعيم افتراضي للرسوم (شبكة أخف، نص أوضح)
+   =================================================================== */
+.recharts-cartesian-grid line { stroke: var(--border); stroke-opacity: .7; }
+.recharts-text { fill: var(--text-muted); font-family: var(--font-sans); }
+.recharts-surface { overflow: visible; }
+.recharts-default-legend { font-size: calc(11px * var(--app-font-scale, 1))!important; }
